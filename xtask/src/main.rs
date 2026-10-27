@@ -1,7 +1,6 @@
 //! Workspace maintenance commands.
 
-use std::env;
-use std::process::ExitCode;
+use std::{env, process::ExitCode};
 
 use xtask::{no_slop, skill_assets};
 

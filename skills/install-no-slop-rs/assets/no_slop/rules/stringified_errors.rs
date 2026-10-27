@@ -1,12 +1,13 @@
 //! Only direct inline map_err closures returning the bound error's to_string().
 //! Method spellings follow Result conventions; types and aliases are not resolved.
 
-use syn::ext::IdentExt as _;
-use syn::visit::{self, Visit};
-use syn::{Expr, ExprMethodCall, File, Pat, Stmt};
+use syn::{
+    Expr, ExprMethodCall, File, Pat, Stmt,
+    ext::IdentExt as _,
+    visit::{self, Visit},
+};
 
-use super::super::context::Context;
-use super::super::diagnostic::Diagnostic;
+use super::super::{context::Context, diagnostic::Diagnostic};
 
 fn unwrapped(mut expr: &Expr) -> &Expr {
     loop {

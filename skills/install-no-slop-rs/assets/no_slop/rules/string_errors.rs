@@ -2,12 +2,13 @@
 //! Result types. Imports, user-defined Result/String types, and aliases are not
 //! resolved. Test-only contracts are exempt.
 
-use syn::spanned::Spanned as _;
-use syn::visit::{self, Visit};
-use syn::{File, GenericArgument, ItemType, PathArguments, ReturnType, Signature, Type, TypePath};
+use syn::{
+    File, GenericArgument, ItemType, PathArguments, ReturnType, Signature, Type, TypePath,
+    spanned::Spanned as _,
+    visit::{self, Visit},
+};
 
-use super::super::context::Context;
-use super::super::diagnostic::Diagnostic;
+use super::super::{context::Context, diagnostic::Diagnostic};
 
 pub(crate) fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
     struct Check<'a> {

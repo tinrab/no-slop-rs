@@ -15,7 +15,7 @@ walkdir.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 ra-ap-rustc_lexer.workspace = true
-sha2.workspace = true
+similar = { version = "3.2", default-features = false, features = ["text"] }
 
 [dev-dependencies]
 tempfile.workspace = true
@@ -27,3 +27,7 @@ path = "src/tests/demo_app.rs"
 [[test]]
 name = "install_skill"
 path = "src/tests/install_skill.rs"
+
+[[test]]
+name = "fix_cli"
+path = "src/tests/fix_cli.rs"

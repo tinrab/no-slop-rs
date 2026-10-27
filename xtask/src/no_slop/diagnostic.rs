@@ -30,6 +30,39 @@ pub struct Diagnostic {
     pub end: Position,
     pub message: String,
     pub help: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fix: Option<TextEdit>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct TextEdit {
+    pub start: usize,
+    pub end: usize,
+    pub replacement: String,
+}
+
+impl Diagnostic {
+    pub(crate) fn with_fix(
+        mut self,
+        start: usize,
+        end: usize,
+        replacement: impl Into<String>,
+    ) -> Self {
+        self.fix = Some(TextEdit {
+            start,
+            end,
+            replacement: replacement.into(),
+        });
+        self
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct FileChange {
+    #[serde(serialize_with = "serialize_path")]
+    pub path: PathBuf,
+    pub diff: String,
+    pub applied: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -50,6 +83,8 @@ pub struct Summary {
     /// Excluded files, generated files, symlinks, and pruned directories.
     pub skipped: usize,
     pub suppressed: usize,
+    pub files_changed: usize,
+    pub files_would_change: usize,
 }
 
 #[derive(Default, Debug, Serialize)]
@@ -57,6 +92,8 @@ pub struct Report {
     pub diagnostics: Vec<Diagnostic>,
     pub failures: Vec<Failure>,
     pub summary: Summary,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub changes: Vec<FileChange>,
 }
 
 impl Report {
@@ -75,5 +112,6 @@ impl Report {
             .sort_by(|a, b| (&a.path, a.start.byte, a.rule).cmp(&(&b.path, b.start.byte, b.rule)));
         self.failures
             .sort_by(|a, b| (&a.path, &a.message).cmp(&(&b.path, &b.message)));
+        self.changes.sort_by(|a, b| a.path.cmp(&b.path));
     }
 }

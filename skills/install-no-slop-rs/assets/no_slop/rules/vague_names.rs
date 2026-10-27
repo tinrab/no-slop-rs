@@ -2,11 +2,12 @@
 //! A domain where one of these words has a precise meaning can exempt the item.
 
 use proc_macro2::Ident;
-use syn::visit::{self, Visit};
-use syn::{File, ItemEnum, ItemStruct, ItemTrait, ItemType};
+use syn::{
+    File, ItemEnum, ItemStruct, ItemTrait, ItemType,
+    visit::{self, Visit},
+};
 
-use super::super::context::Context;
-use super::super::diagnostic::Diagnostic;
+use super::super::{context::Context, diagnostic::Diagnostic};
 
 pub(crate) fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
     struct Check<'a> {

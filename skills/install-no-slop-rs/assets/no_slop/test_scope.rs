@@ -2,8 +2,10 @@
 //! A file also referenced from production remains production. Macro-generated
 //! modules and conditional path attributes are not resolved.
 
-use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 
 use syn::{Expr, Item, Lit, Meta};
 

@@ -2,10 +2,12 @@
 
 use std::ops::Range;
 
-use super::context::Context;
-use super::diagnostic::{Diagnostic, Failure};
-use super::rules;
-use super::source::{self, Comment};
+use super::{
+    context::Context,
+    diagnostic::{Diagnostic, Failure},
+    rules,
+    source::{self, Comment},
+};
 
 struct Suppression<'a> {
     rule: &'a str,

@@ -6,16 +6,15 @@ For a standalone application outside a workspace, explain that the skill cannot 
 ## Copy into a new destination
 
 Use the project's established xtask location.
-Before changing the project, confirm that the bundle contains `assets/no_slop/mod.rs`, `assets/no_slop/LICENSE`, `assets/dependencies.toml`, and `assets/upstream.json`.
+Before changing the project, confirm that the bundle contains `assets/no_slop/mod.rs`, `assets/no_slop/LICENSE`, and `assets/dependencies.toml`.
 If the destination already exists as a file, directory, or symlink, follow the [update procedure](update.md) instead of copying over it.
 
-1. Copy the contents of `assets/no_slop/` to `<xtask-directory>/src/no_slop/`, preserving the directory structure and MIT license.
-2. Copy `assets/upstream.json` to `<xtask-directory>/src/no_slop/UPSTREAM.json` without changing its contents.
-3. Create `UPSTREAM.md` beside it to record the bundle source, installed paths, local changes, and verification.
-   Leave the source revision unknown unless you can verify it.
-4. Compare the copied runtime files with the bundle before applying project formatting or local edits.
+Copy the contents of `assets/no_slop/` to `<xtask-directory>/src/no_slop/`, preserving the directory structure and MIT license.
+Choose any available copying method, such as file tools, shell commands, or Python.
+Python is optional, and the skill requires no particular copying tool or environment manager.
+Compare the copied runtime files with the bundle before applying project formatting or local edits.
 
-Copy only the runtime and provenance files, not the whole skill, upstream xtask crate, or authoring tests.
+Copy only the runtime files, not the whole skill, this repository's xtask crate, or authoring tests.
 Merge manifests, command wiring, and aliases as described below.
 
 ## Fit the Cargo layout
@@ -100,8 +99,8 @@ cargo test --manifest-path <xtask-directory>/Cargo.toml
 
 Use `--locked` after resolving the lockfile when consistent with the project's workflow.
 Format new wiring and copied runtime with the project's edition and rustfmt settings.
-Import ordering can differ between editions, so record formatting changes instead of changing the target's edition to match upstream.
-Verify normal and test builds without upstream tests or authoring files.
+Import ordering can differ between editions, so format the copied code without changing the target's edition.
+Verify normal and test builds without this repository's tests or authoring files.
 
 Exercise an existing command, then run:
 
@@ -121,7 +120,3 @@ cargo run --manifest-path <actual-xtask-manifest> -- no-slop --manifest-path <ap
 
 Report any existing alias limitation separately from scanner behavior.
 See [configuration and results](configuration.md) for policy and exit codes.
-
-Record the source identity, installed paths, manifest changes, policy, local changes, and checks in `UPSTREAM.md`.
-Keep `UPSTREAM.json` unchanged as the incoming content manifest.
-Leave unverifiable source revisions unknown.

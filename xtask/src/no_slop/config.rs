@@ -1,15 +1,13 @@
 //! Workspace policy lives in Cargo's existing metadata table.
 
-use std::collections::BTreeMap;
-use std::path::Path;
+use std::{collections::BTreeMap, path::Path};
 
 use anyhow::{Context as _, Result, ensure};
 use globset::{GlobBuilder, GlobSet, GlobSetBuilder};
 use serde::Deserialize;
 use serde_json::{self, Value};
 
-use super::diagnostic::Level;
-use super::rules;
+use super::{diagnostic::Level, rules};
 
 #[derive(Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields)]

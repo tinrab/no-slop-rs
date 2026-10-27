@@ -2,6 +2,10 @@
 
 mod comments;
 mod error_discard;
+mod error_messages;
+mod fallible_constructors;
+mod fixes;
+mod grouped_imports;
 mod lint_suppressions;
 mod readable_spacing;
 mod scanner;
@@ -14,11 +18,14 @@ use std::path::Path;
 
 use syn::parse_file;
 
-use crate::no_slop::config::Config;
-use crate::no_slop::context::Context;
-use crate::no_slop::diagnostic::{Diagnostic, Report};
-use crate::no_slop::rules::RULES;
-use crate::no_slop::{check_file, parse_source};
+use crate::no_slop::{
+    check_file,
+    config::Config,
+    context::Context,
+    diagnostic::{Diagnostic, Report},
+    parse_source,
+    rules::RULES,
+};
 
 fn findings(id: &str, source: &str) -> Vec<Diagnostic> {
     let file = parse_file(source).unwrap();

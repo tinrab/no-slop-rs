@@ -36,13 +36,12 @@ Follow the command's imports to find the active copy, including renamed modules.
 ## Preserve project intent
 
 Keep existing commands, aliases, workspace defaults, toolchain, formatting settings, and lint policy.
-Copy runtime source and normal dependencies, leaving upstream tests and authoring tools out of the target.
-Use the generated dependency requirements instead of copying the upstream xtask manifest.
+Copy runtime source and normal dependencies, leaving this repository's tests and authoring tools out of the target.
+Use the generated dependency requirements instead of copying this repository's xtask manifest.
 Declare scanner dependencies only in the xtask's `Cargo.toml`.
 Use `.workspace = true` for compatible dependencies already declared in that workspace's `[workspace.dependencies]` table.
 Declare other dependencies directly in xtask rather than adding them to the root manifest.
 Keep scanner-specific features on the xtask dependency entries instead of changing shared workspace features.
-Check compatibility before changing dependencies or the toolchain.
 
 Report application findings and change application code only when cleanup was requested.
 Do not weaken rules to make verification pass.
@@ -52,11 +51,8 @@ Apply compatible updates already authorized by the request and defer unresolved 
 
 Build and test through the xtask's actual manifest, check formatting, and exercise an existing command.
 Run the scanner against the application workspace and inspect both its paths and exit status.
+Keep installation verification read-only unless fixing application code is requested.
 Installation examples and exit-code definitions are in the references.
-
-Retain the bundled MIT license and record source identity, installed paths, local changes, and verification in `UPSTREAM.md`.
-The supplied hash manifest identifies incoming bytes without proving an upstream revision or recovering a missing baseline.
-Do not call a bundle latest without verifying its source.
 
 Report the installed command, module path, scanned workspace, checks, findings, and unresolved issues.
 Separate application findings from failures that leave coverage incomplete.

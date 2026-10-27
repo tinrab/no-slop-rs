@@ -1,18 +1,17 @@
 //! Scanner behavior in isolated source files and temporary workspaces.
 
-use std::ffi::OsString;
-use std::fs;
-use std::path::Path;
+use std::{ffi::OsString, fs, path::Path};
 
 use serde_json;
 use tempfile::{self, TempDir};
 
-use crate::no_slop::cli::Options;
-use crate::no_slop::config::Config;
-use crate::no_slop::diagnostic::{Level, Report};
-use crate::no_slop::scan;
-
 use super::scan_source;
+use crate::no_slop::{
+    cli::Options,
+    config::Config,
+    diagnostic::{Level, Report},
+    scan,
+};
 
 fn source_report(source: &str) -> Report {
     let mut report = Report::default();
@@ -276,7 +275,10 @@ fn test_cli_rejects_incomplete_and_unknown_arguments() {
         vec!["--format", "yaml"],
         vec!["-p"],
         vec!["--manifest-path"],
-        vec!["--fix"],
+        vec!["--unknown"],
+        vec!["--fix", "--fix-dry-run"],
+        vec!["--fix", "--list-rules"],
+        vec!["--fix-dry-run", "--list-rules"],
     ] {
         let args: Vec<_> = args.into_iter().map(OsString::from).collect();
         assert!(Options::parse(&args).is_err());

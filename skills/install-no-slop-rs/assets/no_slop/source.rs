@@ -11,7 +11,7 @@ pub(crate) struct Comment<'a> {
     pub ordinary_line: bool,
 }
 
-fn prefix_len(source: &str) -> usize {
+pub(crate) fn prefix_len(source: &str) -> usize {
     let bom = if source.starts_with('\u{feff}') { 3 } else { 0 };
     let shebang = ra_ap_rustc_lexer::strip_shebang(&source[bom..]).unwrap_or(0);
     bom + shebang

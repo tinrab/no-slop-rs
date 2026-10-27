@@ -1,20 +1,20 @@
 //! File-local information shared by independent rule functions.
 
-use std::cmp::Reverse;
-use std::ops::Range;
-use std::path::Path;
+use std::{cmp::Reverse, ops::Range, path::Path};
 
 use proc_macro2::Span;
-use syn::punctuated::Punctuated;
-use syn::spanned::Spanned as _;
-use syn::visit::{self, Visit};
 use syn::{
     Attribute, Expr, File, ImplItem, ImplItemFn, Item, ItemFn, ItemMod, Macro, Meta, Stmt, Token,
     TraitItem,
+    punctuated::Punctuated,
+    spanned::Spanned as _,
+    visit::{self, Visit},
 };
 
-use super::diagnostic::{Diagnostic, Level, Position};
-use super::source::{self, Comment};
+use super::{
+    diagnostic::{Diagnostic, Level, Position},
+    source::{self, Comment},
+};
 
 pub(crate) struct Context<'a> {
     pub path: &'a Path,
@@ -84,6 +84,7 @@ impl<'a> Context<'a> {
             end: self.position(range.end),
             message: message.into(),
             help,
+            fix: None,
         }
     }
 }

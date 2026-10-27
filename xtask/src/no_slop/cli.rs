@@ -1,17 +1,21 @@
 //! The command accepts OS paths without requiring UTF-8.
 
-use std::ffi::OsString;
-use std::io::{self, Write as _};
-use std::path::PathBuf;
-use std::process::ExitCode;
+use std::{
+    ffi::OsString,
+    io::{self, Write as _},
+    path::PathBuf,
+    process::ExitCode,
+};
 
 use anyhow::{Context as _, Result, bail};
 use serde::Serialize;
 use serde_json;
 
-use super::diagnostic::{Failure, Level, Report};
-use super::rules::RULES;
-use super::scan;
+use super::{
+    diagnostic::{Failure, Level, Report},
+    rules::RULES,
+    scan,
+};
 
 #[derive(Clone, Copy, Default)]
 pub(crate) enum Format {
@@ -26,6 +30,8 @@ pub(crate) struct Options {
     pub packages: Vec<String>,
     pub format: Format,
     pub list_rules: bool,
+    pub fix: bool,
+    pub fix_dry_run: bool,
     pub help: bool,
 }
 
@@ -55,9 +61,17 @@ impl Options {
                     }
                 }
                 Some("--list-rules") => options.list_rules = true,
+                Some("--fix") => options.fix = true,
+                Some("--fix-dry-run") => options.fix_dry_run = true,
                 Some("--help" | "-h") => options.help = true,
                 _ => bail!("unknown no-slop argument: {}", arg.to_string_lossy()),
             }
+        }
+        if options.fix && options.fix_dry_run {
+            bail!("--fix and --fix-dry-run cannot be combined");
+        }
+        if options.list_rules && (options.fix || options.fix_dry_run) {
+            bail!("fix modes cannot be combined with --list-rules");
         }
         Ok(options)
     }
@@ -74,10 +88,13 @@ pub fn run(args: &[OsString]) -> ExitCode {
     };
     if options.help {
         println!(
-            "cargo xtask no-slop [-p NAME ...] [--manifest-path PATH] [--format text|json] [--list-rules]"
+            "cargo xtask no-slop [-p NAME ...] [--manifest-path PATH] [--format text|json] [--list-rules] [--fix | --fix-dry-run]"
         );
         println!(
             "Scans all workspace members by default. Exit codes: 0 success, 1 lint errors, 2 incomplete scan."
+        );
+        println!(
+            "--fix applies mechanical fixes; --fix-dry-run previews the same changes without writing."
         );
         return ExitCode::SUCCESS;
     }
@@ -85,11 +102,16 @@ pub fn run(args: &[OsString]) -> ExitCode {
         match options.format {
             Format::Text => {
                 for rule in RULES {
-                    println!("{}: {}", rule.id, rule.description);
+                    println!(
+                        "{}{}: {}",
+                        rule.id,
+                        if rule.fixable { " (fixable)" } else { "" },
+                        rule.description
+                    );
                 }
             }
             Format::Json => {
-                let rules: Vec<_> = RULES.iter().map(|rule| serde_json::json!({ "id": rule.id, "description": rule.description })).collect();
+                let rules: Vec<_> = RULES.iter().map(|rule| serde_json::json!({ "id": rule.id, "description": rule.description, "fixable": rule.fixable })).collect();
                 if let Err(error) = write_json(&rules) {
                     eprintln!("{error:#}");
                     return ExitCode::from(2);
@@ -150,6 +172,19 @@ fn write_text(report: &Report) -> Result<()> {
         )?;
         writeln!(output, "  help: {}", diagnostic.help)?;
     }
+    for change in &report.changes {
+        writeln!(
+            output,
+            "{}: {}",
+            change.path.display(),
+            if change.applied {
+                "fixed"
+            } else {
+                "proposed fixes"
+            }
+        )?;
+        write!(output, "{}", change.diff)?;
+    }
     for failure in &report.failures {
         let location = failure
             .position
@@ -171,5 +206,12 @@ fn write_text(report: &Report) -> Result<()> {
         report.diagnostics.len(),
         report.failures.len()
     )?;
+    if report.summary.files_changed > 0 || report.summary.files_would_change > 0 {
+        writeln!(
+            output,
+            "{} files changed, {} files would change",
+            report.summary.files_changed, report.summary.files_would_change
+        )?;
+    }
     Ok(())
 }

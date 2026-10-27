@@ -3,8 +3,33 @@
 
 use syn::File;
 
-use super::super::context::Context;
-use super::super::diagnostic::Diagnostic;
+use super::super::{context::Context, diagnostic::Diagnostic};
+
+fn remove_comment(context: &Context<'_>, finding: Diagnostic) -> Diagnostic {
+    let source = context.source;
+    let start = finding.start.byte;
+    let end = finding.end.byte;
+    let line_start = source[..start].rfind('\n').map_or(0, |p| p + 1);
+    let line_end = source[end..]
+        .find('\n')
+        .map_or(source.len(), |p| end + p + 1);
+    if source[line_start..start].chars().all(char::is_whitespace) {
+        finding.with_fix(line_start, line_end, "")
+    } else {
+        let start = line_start
+            + source[line_start..start]
+                .trim_end_matches([' ', '\t'])
+                .len();
+        let end = if source[..line_end].ends_with("\r\n") {
+            line_end - 2
+        } else if source[..line_end].ends_with('\n') {
+            line_end - 1
+        } else {
+            line_end
+        };
+        finding.with_fix(start, end, "")
+    }
+}
 
 fn check(
     context: &Context<'_>,
@@ -61,6 +86,24 @@ pub(crate) fn check_decorative(_file: &File, context: &Context<'_>) -> Vec<Diagn
             .is_some_and(|prefix| prefix.chars().all(char::is_whitespace))
     });
     findings
+        .into_iter()
+        .map(|finding| {
+            let body = context.source[finding.start.byte..finding.end.byte]
+                .trim_start_matches('/')
+                .trim();
+            let delimiter = body.chars().next().unwrap();
+            let heading = body.trim_matches(delimiter).trim();
+            if heading.is_empty() {
+                remove_comment(context, finding)
+            } else if heading.starts_with("no-slop-allow") {
+                // Unframing this text would create a directive that did not exist.
+                finding
+            } else {
+                let (start, end) = (finding.start.byte, finding.end.byte);
+                finding.with_fix(start, end, format!("// {heading}"))
+            }
+        })
+        .collect()
 }
 
 fn normalized(body: &str) -> String {
@@ -92,6 +135,9 @@ pub(crate) fn check_boilerplate(_file: &File, context: &Context<'_>) -> Vec<Diag
         boilerplate,
         "Remove the label or explain a concrete decision, constraint, or invariant.",
     )
+    .into_iter()
+    .map(|finding| remove_comment(context, finding))
+    .collect()
 }
 
 pub(crate) fn check_todos(_file: &File, context: &Context<'_>) -> Vec<Diagnostic> {

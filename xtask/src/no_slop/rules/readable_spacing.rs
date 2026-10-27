@@ -5,16 +5,19 @@
 //! this rule. Spacing inside an item's attributes and documentation is untouched.
 
 use proc_macro2::Span;
-use syn::spanned::Spanned;
-use syn::visit::{self, Visit};
 use syn::{
     Attribute, Block, File, ForeignItem, ImplItem, Item, ItemForeignMod, ItemImpl, ItemMod,
     ItemTrait, Stmt, TraitItem,
+    spanned::Spanned,
+    visit::{self, Visit},
 };
 
-use super::super::context::Context;
-use super::super::diagnostic::Diagnostic;
-use super::super::source::{self, Comment};
+use super::super::{
+    context::Context,
+    diagnostic::Diagnostic,
+    fix,
+    source::{self, Comment},
+};
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum Group {
@@ -70,10 +73,25 @@ pub(crate) fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
                 }
                 offset = line_end;
             }
+            let line_start = self.context.source[..boundary]
+                .rfind('\n')
+                .map_or(0, |p| p + 1);
+            let newline = fix::newline(self.context.source, boundary);
+            let (fix_start, fix_end, replacement) = if line_start >= end
+                && self.context.source[line_start..boundary]
+                    .chars()
+                    .all(char::is_whitespace)
+            {
+                (line_start, line_start, newline.to_owned())
+            } else {
+                let prefix = &self.context.source[end..boundary];
+                let start = end + prefix.trim_end_matches([' ', '\t']).len();
+                (start, boundary, newline.repeat(2))
+            };
             self.findings.push(self.context.report(
                 "require-readable-spacing", current_span, "missing blank line between declarations",
                 "Insert a blank line before this declaration and its attached documentation, attributes, or leading comments.",
-            ));
+            ).with_fix(fix_start, fix_end, replacement));
         }
     }
 

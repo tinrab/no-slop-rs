@@ -9,7 +9,7 @@
       "expectations": [
         "The agent checks the application workspace declaration rather than relying only on Cargo metadata workspace_root.",
         "The agent explains the workspace-only limitation.",
-        "The agent creates no xtask, workspace table, alias, runtime files, or provenance.",
+        "The agent creates no xtask, workspace table, alias, runtime files.",
         "Application files, Cargo manifests, lockfiles, and existing configuration remain unchanged."
       ]
     },
@@ -31,15 +31,15 @@
     },
     {
       "id": 3,
-      "prompt": "Update the installed scanner using the provided skill bundle. There is no original source snapshot or verified upstream revision. Preserve the customized diagnostic, disabled rules, command wiring, and unrelated application edits. Adopt only understood compatible changes and document what remains uncertain.",
-      "expected_output": "Conservative update preserving local behavior and unknown-baseline provenance.",
+      "prompt": "Update the installed scanner using the provided skill bundle. Preserve the customized diagnostic, disabled rules, command wiring, and unrelated application edits. Adopt only understood compatible changes and document what remains uncertain.",
+      "expected_output": "Update preserving customized rules, configuration, and command behavior.",
       "files": [],
       "expectations": [
         "The project-specific diagnostic remains present.",
         "Disabled/warn rule settings, ping, alias, and unrelated application edits are preserved.",
         "The updated xtask builds, tests, and passes formatting checks.",
         "The application scan respects disabled rules and has no scan failures.",
-        "Provenance clearly records the missing original baseline and preserves uncertainty.",
+        "The agent compares the installed scanner with the bundle and preserves local-only changes.",
         "Copied runtime retains the MIT license.",
         "Scanner dependencies are declared only in the xtask manifest, with no new or changed root workspace dependency declarations.",
         "Compatible existing workspace dependencies are inherited, while missing dependencies and scanner-specific features are declared directly in xtask."
@@ -55,7 +55,7 @@
         "The installed scanner reports the application UserManager violation with exit 1 and no scan failures.",
         "The xtask passes normal/test builds and project formatting checks.",
         "Only runtime sources and normal dependencies are installed.",
-        "Provenance reports the actual bundle identity without inventing an upstream revision.",
+        "The installed module contains the runtime and license without generated tracking files.",
         "Copied runtime retains the MIT license.",
         "Scanner dependencies are declared only in the xtask manifest, with no new or changed root workspace dependency declarations.",
         "Compatible existing workspace dependencies are inherited, while missing dependencies and scanner-specific features are declared directly in xtask."

@@ -1,5 +1,27 @@
 //! Compiling examples of every no-slop rule violation.
 //! `cargo xtask no-slop -p demo-app` should report one finding per rule.
+//! Triggers `require-grouped-imports`: these std imports share a written root.
+
+use std::env;
+use std::path::PathBuf;
+
+pub fn executable_path() -> std::io::Result<PathBuf> {
+    env::current_exe()
+}
+
+// Triggers `require-lowercase-error-messages`: capitalize the opening deliberately.
+pub fn capitalized_error() -> std::io::Error {
+    std::io::Error::other("Failed to load configuration")
+}
+
+pub struct Connection;
+
+impl Connection {
+    // Triggers `require-create-for-fallible-constructors`: this should be create.
+    pub fn new() -> Option<Self> {
+        Some(Self)
+    }
+}
 
 // Triggers `require-readable-spacing`: these sibling declarations deliberately
 // have no blank line between them. rustfmt preserves that gap.

@@ -1,13 +1,17 @@
 //! Exercise direct runtime copies in disposable workspaces.
 
-use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
-use std::{env, fs};
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+    process::{Command, Output},
+};
 
 use cargo_metadata::{DependencyKind, MetadataCommand};
 use serde_json::{self, Value};
-use syn::visit::{self, Visit};
-use syn::{Attribute, Path as SynPath, parse_file};
+use syn::{
+    Attribute, Path as SynPath, parse_file,
+    visit::{self, Visit},
+};
 use tempfile;
 use walkdir::WalkDir;
 
@@ -61,16 +65,6 @@ fn copy_runtime(destination: &Path) {
             fs::copy(entry.path(), target).unwrap();
         }
     }
-    fs::copy(
-        assets.join("upstream.json"),
-        destination.join("UPSTREAM.json"),
-    )
-    .unwrap();
-    write(
-        destination,
-        "UPSTREAM.md",
-        "# No-slop provenance\n\nSource revision: unknown.\n",
-    );
 }
 
 fn fixture(directory: &Path, existing_workspace: bool) {
@@ -99,7 +93,8 @@ fn fixture(directory: &Path, existing_workspace: bool) {
         "struct ApplicationData;\n\nfn ignored_contract() -> Result<(), String> { Ok(()) }\n\nfn main() {}\n",
     );
     let requirements =
-        fs::read_to_string(root().join("skills/install-no-slop-rs/assets/dependencies.toml")).unwrap();
+        fs::read_to_string(root().join("skills/install-no-slop-rs/assets/dependencies.toml"))
+            .unwrap();
     write(
         directory,
         "xtask/Cargo.toml",
@@ -118,8 +113,7 @@ fn fixture(directory: &Path, existing_workspace: bool) {
         r#"
         mod no_slop;
 
-        use std::env;
-        use std::process::ExitCode;
+        use std::{env, process::ExitCode};
 
         fn main() -> ExitCode {
             let mut args = env::args_os().skip(1);
@@ -202,7 +196,7 @@ fn test_bundle_contains_only_runtime_sources_and_dependencies() {
             dependency.name
         );
         assert!(
-            !matches!(dependency.name.as_str(), "sha2" | "tempfile"),
+            dependency.name != "tempfile",
             "author-only dependency shipped: {}",
             dependency.name
         );
@@ -220,7 +214,6 @@ fn test_copied_runtime_runs_and_preserves_local_changes() {
         assert!(!destination.join("tests").exists());
         assert!(destination.join("rules/readable_spacing.rs").is_file());
         assert!(destination.join("rules/comments.rs").is_file());
-        assert!(destination.join("UPSTREAM.json").is_file());
         assert_eq!(
             fs::read(destination.join("LICENSE")).unwrap(),
             fs::read(root().join("LICENSE")).unwrap()
@@ -253,30 +246,17 @@ fn test_copied_runtime_runs_and_preserves_local_changes() {
         );
         assert_eq!(report["diagnostics"][0]["rule"], "no-vague-type-names");
 
-        // Keep a local edit while adopting an independent upstream change.
+        // Keep a local edit while adopting a diagnostic change.
         let rule_path = destination.join("rules/vague_names.rs");
         let base = fs::read_to_string(&rule_path).unwrap();
         let local = format!("{base}\n// local customization retained\n");
         fs::write(&rule_path, &local).unwrap();
 
-        // Exercise the skill's known-baseline update procedure with a real merge.
-        let incoming = base.replace(
+        let merged = local.replace(
             "type name `{name}` does not identify a responsibility",
             "type name `{name}` must identify its responsibility",
         );
-        let merge = tempfile::tempdir().unwrap();
-        write(merge.path(), "base.rs", &base);
-        write(merge.path(), "local.rs", &local);
-        write(merge.path(), "incoming.rs", &incoming);
-        let merged = success(
-            Command::new("git")
-                .args(["merge-file", "-p", "local.rs", "base.rs", "incoming.rs"])
-                .current_dir(merge.path())
-                .output()
-                .unwrap(),
-        );
-        fs::write(&rule_path, &merged.stdout).unwrap();
-        let merged = String::from_utf8(merged.stdout).unwrap();
+        fs::write(&rule_path, &merged).unwrap();
         assert!(merged.contains("local customization retained"));
         assert!(merged.contains("must identify its responsibility"));
         success(cargo(directory.path(), &["test", "-p", "xtask", "--quiet"]));
@@ -361,6 +341,69 @@ fn test_copied_runtime_runs_and_preserves_local_changes() {
             1,
             "{report}"
         );
+        // The copied runtime supports preview and writes without author tooling.
+        let fix_path = format!("{member}/fixable.rs");
+        let source = "// Main logic\nfn fixed() {}\n\nuse std::env;\nuse std::path::PathBuf;\n";
+        write(directory.path(), &fix_path, source);
+        let output = cargo(
+            directory.path(),
+            &["xtask", "no-slop", "--fix-dry-run", "--format", "json"],
+        );
+        assert_eq!(output.status.code(), Some(1));
+        let preview: Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(preview["summary"]["files_would_change"], 1);
+        assert_eq!(
+            fs::read_to_string(directory.path().join(&fix_path)).unwrap(),
+            source
+        );
+        let output = cargo(
+            directory.path(),
+            &["xtask", "no-slop", "--fix", "--format", "json"],
+        );
+        assert_eq!(output.status.code(), Some(1));
+        let fixed: Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(fixed["summary"]["files_changed"], 1);
+        assert_eq!(fixed["changes"][0]["diff"], preview["changes"][0]["diff"]);
+        assert_eq!(
+            fs::read_to_string(directory.path().join(&fix_path)).unwrap(),
+            "fn fixed() {}\n\nuse std::{env, path::PathBuf};\n"
+        );
+        // New policies remain available without author tests or extra dependencies.
+        let policy_path = format!("{member}/policies.rs");
+        let policy_source = "pub struct Session;\n\nimpl Session {\n    pub fn new() -> Option<Self> { None }\n}\n\npub fn failure() -> std::io::Error {\n    std::io::Error::other(\"Failed to read configuration\")\n}\n";
+        write(directory.path(), &policy_path, policy_source);
+        let main_path = directory.path().join(format!("{member}/main.rs"));
+        let mut main = fs::read_to_string(&main_path).unwrap();
+        main.push_str("\nmod policies;\n");
+        fs::write(main_path, main).unwrap();
+        let output = cargo(
+            directory.path(),
+            &["xtask", "no-slop", "--fix", "--format", "json"],
+        );
+        assert_eq!(output.status.code(), Some(1));
+        let policies: Value = serde_json::from_slice(&output.stdout).unwrap();
+        for rule in [
+            "require-lowercase-error-messages",
+            "require-create-for-fallible-constructors",
+        ] {
+            let diagnostics: Vec<_> = policies["diagnostics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|diagnostic| diagnostic["rule"] == rule)
+                .collect();
+            assert_eq!(diagnostics.len(), 1, "{policies}");
+            assert!(diagnostics[0].get("fix").is_none());
+        }
+        assert_eq!(policies["summary"]["files_changed"], 0);
+        assert_eq!(
+            fs::read_to_string(directory.path().join(&policy_path)).unwrap(),
+            policy_source
+        );
+        success(cargo(
+            directory.path(),
+            &["check", "--workspace", "--all-targets", "--locked"],
+        ));
         write(
             directory.path(),
             &format!(

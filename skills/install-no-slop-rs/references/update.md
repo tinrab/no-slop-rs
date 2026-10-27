@@ -1,45 +1,21 @@
 # Update a customized scanner
 
-Confirm that the application belongs to an existing Cargo workspace before staging or changing an installed scanner.
-If it does not, explain that this skill cannot update its xtask and leave the project unchanged, even when an xtask already exists.
+Confirm that the application belongs to an existing Cargo workspace before changing an installed scanner.
+If it does not, explain that this skill cannot update its xtask and leave the project unchanged.
 
-Preserve local rules, tests, configuration, diagnostics, and command wiring when adopting upstream changes.
+Find the active scanner through the xtask dispatcher and inspect local changes before editing it.
+Compare the installed files with the bundled runtime, using a temporary copy when helpful.
+Apply the requested changes while preserving customized rules, tests, diagnostics, configuration, and command wiring.
+Do not replace the installed directory wholesale or discard differences you do not understand.
+Defer unresolved policy conflicts and explain them to the user.
 
-## Compare before merging
-
-1. Find the active scanner through the xtask dispatcher and read its provenance.
-   Inspect working-tree changes and keep a recoverable backup outside the installation.
-   Leave unrelated work intact.
-2. Copy `assets/no_slop/`, `assets/dependencies.toml`, and `assets/upstream.json` into a separate temporary directory for comparison.
-   Preserve the installed scanner until you have reviewed the differences.
-   For a requested revision or latest version, retrieve that source and verify its identity.
-3. Recover the original unmodified source from verified history when available.
-   A hash manifest identifies bytes but cannot reconstruct a missing baseline.
-   Keep the baseline, local source, and incoming source separate.
-4. With a known baseline, merge upstream changes while preserving local edits and deletions.
-   Reconcile renamed rules by behavior and registration, not filenames alone.
-   Defer conflicting policy until its intent is clear.
-5. Without a baseline, port independently understood changes and retain unexplained differences.
-   Do not invent an ancestor or replace the directory with upstream defaults.
-
-## Preserve policy and verify
-
-Keep disabled rules, levels, exclusions, and local-only behavior.
-New rules need a policy choice unless enabling them is already authorized.
-Change dependencies only when adopted code needs them, preserving the target's toolchain and commands.
-Keep dependency changes in the xtask manifest, reusing existing compatible workspace entries without adding or changing root dependency declarations.
-Declare dependencies absent from `[workspace.dependencies]` directly in xtask and add scanner-specific features there.
-If an older copy contains tests in the runtime module, move customized tests into the project's test area and preserve their behavior.
-Keep upstream authoring files and dev dependencies out of fresh installations.
+Keep dependency changes in the xtask manifest, reusing existing compatible workspace dependencies without changing root declarations.
+Declare missing dependencies and scanner-specific features directly in xtask.
+Preserve disabled rules, levels, and exclusions, and enable new rules only when authorized.
 
 Run tests for adopted behavior and local customizations, then verify the installed command and application coverage.
-Report application findings separately from scanner failures.
-Do not suppress findings or clean up application code merely to make an update pass.
-
-Record incoming identity, baseline identity or its absence, adopted changes, local deviations, deferred changes, and checks in provenance.
-Advance the baseline only after reconciling the complete incoming snapshot.
-For a partial update, retain the prior baseline and record adopted changes separately.
-Report remaining conflicts and the backup location, keeping recovery material until it is no longer needed.
+Report changes, checks, application findings, and unresolved issues.
+Do not clean up application code merely to make the update pass.
 
 ## Rule ownership migration
 

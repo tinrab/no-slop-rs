@@ -3,13 +3,14 @@
 //! does not make a helper a test. Attribute aliases and generated tests inside
 //! opaque macro bodies are not resolved or expanded.
 
-use syn::ext::IdentExt as _;
-use syn::punctuated::Punctuated;
-use syn::visit::{self, Visit};
-use syn::{File, ItemFn, Meta, Token};
+use syn::{
+    File, ItemFn, Meta, Token,
+    ext::IdentExt as _,
+    punctuated::Punctuated,
+    visit::{self, Visit},
+};
 
-use super::super::context::Context;
-use super::super::diagnostic::Diagnostic;
+use super::super::{context::Context, diagnostic::Diagnostic};
 
 pub(crate) fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
     struct Check<'a> {

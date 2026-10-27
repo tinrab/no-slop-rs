@@ -2,11 +2,12 @@
 //! An intentional conversion to absence needs a local exception with its policy.
 //! Arbitrary ignored expressions are outside this syntactic rule.
 
-use syn::visit::{self, Visit};
-use syn::{Expr, ExprMethodCall, File, Stmt};
+use syn::{
+    Expr, ExprMethodCall, File, Stmt,
+    visit::{self, Visit},
+};
 
-use super::super::context::Context;
-use super::super::diagnostic::Diagnostic;
+use super::super::{context::Context, diagnostic::Diagnostic};
 
 pub(crate) fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
     struct Check<'a> {

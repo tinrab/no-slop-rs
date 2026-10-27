@@ -1,6 +1,6 @@
 //! Editable, syntax-based rules for common agent-generated Rust patterns.
 //!
-//! Integrate by dispatching `no-slop` to [`run`]. Application code is read only.
+//! Integrate by dispatching `no-slop` to [`run`]. Only --fix writes application code.
 //! Rules inspect written syntax, including inactive cfg branches, without macro
 //! expansion, inferred types, or cross-file alias resolution.
 
@@ -9,23 +9,25 @@ pub(crate) mod config;
 pub(crate) mod context;
 pub(crate) mod diagnostic;
 mod discovery;
+pub(crate) mod fix;
+mod imports;
 pub(crate) mod rules;
 mod source;
 mod suppression;
 mod test_scope;
 
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use anyhow::Result;
-use syn::{self, File};
-
-use self::cli::Options;
-use self::config::Config;
-use self::rules::RULES;
 pub use cli::run;
 use context::Context;
-use diagnostic::{Failure, Level, Report};
+use diagnostic::{Failure, FileChange, Level, Report};
+use syn::{self, File};
+
+use self::{cli::Options, config::Config, rules::RULES};
 
 struct ParsedFile {
     path: PathBuf,
@@ -72,7 +74,55 @@ pub(crate) fn scan(options: &Options) -> Result<Report> {
             .strip_prefix(&workspace.root)
             .unwrap_or(&file.path);
         let context = Context::new(path, &file.source, &file.syntax, file.is_test);
-        check_file(&context, &file.syntax, &workspace.config, &mut report);
+        let mut local = Report::default();
+        check_file(&context, &file.syntax, &workspace.config, &mut local);
+        if (options.fix || options.fix_dry_run) && local.failures.is_empty() {
+            let change = (|| -> Result<_> {
+                let candidate = fix::plan(path, &file.source, file.is_test, &workspace.config)?;
+                if candidate == file.source {
+                    return Ok(None);
+                }
+                let syntax = syn::parse_file(&source::prepare(&candidate))?;
+                if options.fix {
+                    fix::commit(&file.path, &file.source, &candidate)?;
+                }
+                Ok(Some((candidate, syntax)))
+            })();
+            match change {
+                Ok(Some((candidate, syntax))) => {
+                    let diff =
+                        similar::TextDiff::from_lines(file.source.as_str(), candidate.as_str())
+                            .unified_diff()
+                            .header(
+                                &format!("a/{}", path.display()),
+                                &format!("b/{}", path.display()),
+                            )
+                            .to_string();
+                    report.changes.push(FileChange {
+                        path: path.to_owned(),
+                        diff,
+                        applied: options.fix,
+                    });
+                    if options.fix {
+                        report.summary.files_changed += 1;
+                        local = Report::default();
+                        let context = Context::new(path, &candidate, &syntax, file.is_test);
+                        check_file(&context, &syntax, &workspace.config, &mut local);
+                    } else {
+                        report.summary.files_would_change += 1;
+                    }
+                }
+                Ok(None) => {}
+                Err(error) => local.failures.push(Failure {
+                    path: path.to_owned(),
+                    position: None,
+                    message: format!("could not fix file: {error:#}"),
+                }),
+            }
+        }
+        report.summary.suppressed += local.summary.suppressed;
+        report.diagnostics.extend(local.diagnostics);
+        report.failures.extend(local.failures);
     }
     report.sort();
     Ok(report)

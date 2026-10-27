@@ -8,5 +8,6 @@ proc-macro2 = { version = "^1.0.107", features = ["span-locations"], default-fea
 ra-ap-rustc_lexer = { version = "^0.125.0", features = [], default-features = true }
 serde = { version = "^1", features = ["derive"], default-features = true }
 serde_json = { version = "^1", features = [], default-features = true }
+similar = { version = "^3.2", features = ["text"], default-features = false }
 syn = { version = "^3.0.9", features = ["full","visit"], default-features = true }
 walkdir = { version = "^2.5.0", features = [], default-features = true }

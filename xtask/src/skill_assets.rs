@@ -1,14 +1,15 @@
 //! Ship the tested scanner runtime and its dependency requirements.
 
-use std::collections::BTreeMap;
-use std::ffi::OsString;
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::BTreeMap,
+    ffi::OsString,
+    fs,
+    path::{Path, PathBuf},
+};
 
 use anyhow::{Context as _, Result, ensure};
 use cargo_metadata::{DependencyKind, MetadataCommand};
 use serde_json;
-use sha2::{Digest as _, Sha256};
 use walkdir::WalkDir;
 
 pub fn run(args: &[OsString]) -> Result<()> {
@@ -31,19 +32,6 @@ fn sync(root: &Path, check: bool) -> Result<()> {
     }
     expected.insert("no_slop/LICENSE".into(), fs::read(root.join("LICENSE"))?);
     expected.insert("dependencies.toml".into(), dependencies(root)?.into_bytes());
-    let hashes: BTreeMap<_, _> = expected
-        .iter()
-        .map(|(path, bytes)| {
-            (
-                path.to_string_lossy().replace('\\', "/"),
-                format!("{:x}", Sha256::digest(bytes)),
-            )
-        })
-        .collect();
-    let manifest = serde_json::json!({ "format": 1, "files": hashes });
-    let mut manifest = serde_json::to_vec_pretty(&manifest)?;
-    manifest.push(b'\n');
-    expected.insert("upstream.json".into(), manifest);
     if check {
         ensure!(
             read_tree(&destination)? == expected,
@@ -99,7 +87,7 @@ fn dependencies(root: &Path) -> Result<String> {
     let mut dependencies = BTreeMap::new();
     for dependency in &package.dependencies {
         // Authoring and test dependencies stay in this repository.
-        if dependency.kind != DependencyKind::Normal || dependency.name == "sha2" {
+        if dependency.kind != DependencyKind::Normal {
             continue;
         }
         let features = serde_json::to_string(&dependency.features)?;

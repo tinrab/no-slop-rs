@@ -1,15 +1,19 @@
 //! Enumerate workspace-owned Rust source without compiling application targets.
 
-use std::collections::{BTreeMap, BTreeSet};
-use std::path::PathBuf;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::PathBuf,
+};
 
 use anyhow::{Context as _, Result, ensure};
 use cargo_metadata::{MetadataCommand, TargetKind};
 use walkdir::WalkDir;
 
-use super::cli::Options;
-use super::config::{self, Config};
-use super::diagnostic::{Failure, Report};
+use super::{
+    cli::Options,
+    config::{self, Config},
+    diagnostic::{Failure, Report},
+};
 
 pub(crate) struct SourceFile {
     pub path: PathBuf,

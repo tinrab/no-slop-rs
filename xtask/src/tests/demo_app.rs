@@ -1,8 +1,6 @@
 //! Keep the checked-in demo aligned with the actual scanner rule registry.
 
-use std::collections::BTreeSet;
-use std::path::Path;
-use std::process::Command;
+use std::{collections::BTreeSet, path::Path, process::Command};
 
 use serde_json::{self, Value};
 

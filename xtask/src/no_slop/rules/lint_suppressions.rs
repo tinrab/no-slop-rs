@@ -2,13 +2,14 @@
 //! a no-slop exception even when the Rust attribute already has a reason.
 //! Inspect cfg_attr contents without evaluating their condition.
 
-use syn::punctuated::Punctuated;
-use syn::spanned::Spanned as _;
-use syn::visit::{self, Visit};
-use syn::{Attribute, File, Meta, MetaList, Token};
+use syn::{
+    Attribute, File, Meta, MetaList, Token,
+    punctuated::Punctuated,
+    spanned::Spanned as _,
+    visit::{self, Visit},
+};
 
-use super::super::context::Context;
-use super::super::diagnostic::Diagnostic;
+use super::super::{context::Context, diagnostic::Diagnostic};
 
 pub(crate) fn check_blanket(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
     check_attributes(file, context, |list, context| {
