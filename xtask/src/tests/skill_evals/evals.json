@@ -1,0 +1,77 @@
+{
+  "skill_name": "install-no-slop-rs",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Use the provided skill to add cargo xtask no-slop to this single-crate Rust project, which has no declared Cargo workspace.",
+      "expected_output": "The agent explains that the skill requires an existing Cargo workspace and cannot create or update an xtask here, leaving the project unchanged.",
+      "files": [],
+      "expectations": [
+        "The agent checks the application workspace declaration rather than relying only on Cargo metadata workspace_root.",
+        "The agent explains the workspace-only limitation.",
+        "The agent creates no xtask, workspace table, alias, runtime files, or provenance.",
+        "Application files, Cargo manifests, lockfiles, and existing configuration remain unchanged."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Add cargo xtask no-slop to this workspace using its existing independent tools/xtask crate and alias. Preserve the ping command, root default-members, and application source. The scanner must scan the application workspace rather than just the independent xtask.",
+      "expected_output": "Independent xtask integration retaining workspace boundaries and existing commands.",
+      "files": [],
+      "expectations": [
+        "Application source, root default-members, and the independent xtask alias are preserved.",
+        "The existing ping command still prints pong and exits 0.",
+        "The independent xtask builds and tests through its own manifest and passes formatting checks.",
+        "The scanner reports the application UserManager violation with exit 1 and no scan failures.",
+        "An explicit application --manifest-path override works.",
+        "Copied runtime retains the MIT license.",
+        "Scanner dependencies are declared only in the xtask manifest, with no new or changed root workspace dependency declarations.",
+        "Compatible existing workspace dependencies are inherited, while missing dependencies and scanner-specific features are declared directly in xtask."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Update the installed scanner using the provided skill bundle. There is no original source snapshot or verified upstream revision. Preserve the customized diagnostic, disabled rules, command wiring, and unrelated application edits. Adopt only understood compatible changes and document what remains uncertain.",
+      "expected_output": "Conservative update preserving local behavior and unknown-baseline provenance.",
+      "files": [],
+      "expectations": [
+        "The project-specific diagnostic remains present.",
+        "Disabled/warn rule settings, ping, alias, and unrelated application edits are preserved.",
+        "The updated xtask builds, tests, and passes formatting checks.",
+        "The application scan respects disabled rules and has no scan failures.",
+        "Provenance clearly records the missing original baseline and preserves uncertainty.",
+        "Copied runtime retains the MIT license.",
+        "Scanner dependencies are declared only in the xtask manifest, with no new or changed root workspace dependency declarations.",
+        "Compatible existing workspace dependencies are inherited, while missing dependencies and scanner-specific features are declared directly in xtask."
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Install the provided no-slop skill in this existing Cargo workspace, which has no xtask yet. Preserve the application source and existing Cargo aliases. Report findings rather than fixing them.",
+      "expected_output": "The agent adds an xtask member to the existing workspace and verifies scanning without changing application code.",
+      "files": [],
+      "expectations": [
+        "Application source and the existing check-app alias are preserved.",
+        "The installed scanner reports the application UserManager violation with exit 1 and no scan failures.",
+        "The xtask passes normal/test builds and project formatting checks.",
+        "Only runtime sources and normal dependencies are installed.",
+        "Provenance reports the actual bundle identity without inventing an upstream revision.",
+        "Copied runtime retains the MIT license.",
+        "Scanner dependencies are declared only in the xtask manifest, with no new or changed root workspace dependency declarations.",
+        "Compatible existing workspace dependencies are inherited, while missing dependencies and scanner-specific features are declared directly in xtask."
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Update no-slop in this standalone application. The application manifest has no workspace declaration, but its existing tools/xtask has a separate workspace and customized scanner.",
+      "expected_output": "The agent explains that the application is outside the supported workspace scope and does not update the existing xtask.",
+      "files": [],
+      "expectations": [
+        "The agent checks the application workspace rather than treating the independent xtask workspace as eligibility.",
+        "The agent explains that it cannot update an xtask for an application outside a declared workspace.",
+        "The agent leaves scanner customizations, manifests, lockfiles, aliases, and application source unchanged.",
+        "The agent does not convert the application to a workspace or create another xtask."
+      ]
+    }
+  ]
+}

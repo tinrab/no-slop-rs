@@ -1,0 +1,29 @@
+[package]
+name = "xtask"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+anyhow.workspace = true
+proc-macro2 = { workspace = true, features = ["span-locations"] }
+syn = { workspace = true, features = ["full", "visit"] }
+cargo_metadata.workspace = true
+globset.workspace = true
+walkdir.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+ra-ap-rustc_lexer.workspace = true
+sha2.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[[test]]
+name = "demo_app"
+path = "src/tests/demo_app.rs"
+
+[[test]]
+name = "install_skill"
+path = "src/tests/install_skill.rs"
