@@ -190,7 +190,7 @@ fn test_does_not_scan_unrelated_strings_display_or_opaque_macro_payloads() {
 
 #[test]
 fn test_levels_exceptions_test_scopes_and_diagnostic_only_fixing() {
-    let source = "fn f() { value.context(\"Failed\"); }";
+    let source = "fn f() { value.context(\"Failed to read configuration\"); }";
     let mut report = Report::default();
     scan_source(
         Path::new("src/lib.rs"),
@@ -212,7 +212,7 @@ fn test_levels_exceptions_test_scopes_and_diagnostic_only_fixing() {
         assert_eq!(report.exit_status(), 0);
     }
     for source in [
-        "// no-slop-allow: require-lowercase-error-messages -- preserve the remote system's wording\nfn f() { bail!(\"Failed\"); }",
+        "// no-slop-allow: require-lowercase-error-messages -- preserve the remote system's wording\nfn f() { bail!(\"Failed to read configuration\"); }",
         "fn f() {\n// no-slop-allow: require-lowercase-error-messages -- HTTP is the protocol name\nvalue.context(\"HTTP request failed\");\n}",
     ] {
         let mut report = Report::default();

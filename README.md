@@ -46,6 +46,50 @@ These are suggested corrections; only the four rules listed above support automa
 Checks follow written syntax without resolving types, imported aliases, or macro expansions.
 See the [configuration reference](skills/install-no-slop-rs/references/configuration.md) for coverage limits and exceptions.
 
+### `no-vague-error-messages`
+
+Replace complete generic messages with an explanation that identifies the operation or failure.
+
+```diff
+-result.context("operation failed")
++result.context("reading configuration")
+```
+
+### `no-duplicate-error-context`
+
+Avoid adjacent literal contexts that repeat the same message, including literal-only lazy closures.
+
+```diff
+ load()
+     .context("reading configuration")
+-    .with_context(|| "reading configuration")
+```
+
+### `require-error-sources`
+
+Declare the source when a thiserror wrapper retains a recognized standard error.
+
+```diff
+ #[derive(Debug, thiserror::Error)]
+ enum ConfigError {
+     #[error("could not read configuration")]
+-    Read(io::Error),
++    Read(#[source] io::Error),
+ }
+```
+
+### `no-vague-test-names`
+
+Replace placeholder or numeric-only test names with descriptions of the behavior being checked.
+
+```diff
+ #[test]
+-fn test_basic() {
++fn test_rejects_expired_token() {
+     assert_eq!(verify(expired_token()), Err(TokenError::Expired));
+ }
+```
+
 ### `require-lowercase-error-messages`
 
 Begin error-message prose with lowercase text while preserving acronyms and identifiers later in the message.
@@ -155,6 +199,7 @@ Replace decorative separators and framed headings with plain explanations.
 ### `no-boilerplate-comments`
 
 Remove exact boilerplate labels that add no explanation.
+Scaffolding phrases such as `Your code here` are also reported, but remain unchanged by `--fix` because they may indicate unfinished behavior.
 
 ```diff
 -// Main logic

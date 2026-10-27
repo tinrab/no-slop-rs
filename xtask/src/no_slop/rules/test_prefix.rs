@@ -42,7 +42,7 @@ pub(crate) fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
     check.findings
 }
 
-fn test_attribute(meta: &Meta) -> bool {
+pub(super) fn test_attribute(meta: &Meta) -> bool {
     if meta
         .path()
         .segments

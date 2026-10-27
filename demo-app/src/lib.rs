@@ -5,6 +5,8 @@
 use std::env;
 use std::path::PathBuf;
 
+use anyhow::Context as _;
+
 pub fn executable_path() -> std::io::Result<PathBuf> {
     env::current_exe()
 }
@@ -12,6 +14,18 @@ pub fn executable_path() -> std::io::Result<PathBuf> {
 // Triggers `require-lowercase-error-messages`: capitalize the opening deliberately.
 pub fn capitalized_error() -> std::io::Error {
     std::io::Error::other("Failed to load configuration")
+}
+
+// Triggers `no-vague-error-messages`: the text identifies no operation or failure.
+pub fn vague_failure() -> anyhow::Error {
+    anyhow::anyhow!("operation failed")
+}
+
+// Triggers `no-duplicate-error-context`: these adjacent contexts repeat a message.
+pub fn repeated_context(path: &std::path::Path) -> anyhow::Result<String> {
+    std::fs::read_to_string(path)
+        .context("reading configuration")
+        .context("reading configuration")
 }
 
 pub struct Connection;
@@ -34,7 +48,7 @@ pub fn second_declaration() -> u8 {
 
 // Triggers `no-string-errors`: String erases a structured error contract.
 pub fn opaque_failure() -> Result<(), String> {
-    Err("something went wrong".to_owned())
+    Err("could not load configuration".to_owned())
 }
 
 // Triggers `no-silent-error-discard`: the returned Option drops the parse error.
@@ -74,6 +88,20 @@ pub fn stringified_failure(input: &str) -> Result<usize, Box<dyn std::error::Err
 #[cfg(test)]
 mod tests {
     use super::first_declaration;
+
+    #[derive(Debug, thiserror::Error)]
+    enum ReadFailure {
+        // Triggers `require-error-sources`: this field should declare #[source].
+        #[error("could not read configuration")]
+        Read(std::io::Error),
+    }
+
+    // Triggers `no-vague-test-names`: the prefix alone describes no behavior.
+    #[test]
+    fn test_basic() {
+        let failure = ReadFailure::Read(std::io::Error::other("could not read configuration"));
+        assert_eq!(failure.to_string(), "could not read configuration");
+    }
 
     // Triggers `require-test-prefix`: this test function does not begin with test_.
     #[test]

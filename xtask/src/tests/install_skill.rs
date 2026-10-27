@@ -404,6 +404,41 @@ fn test_copied_runtime_runs_and_preserves_local_changes() {
             directory.path(),
             &["check", "--workspace", "--all-targets", "--locked"],
         ));
+        // Orphan source exercises syntax-only policies without app dependencies.
+        let orphan_path = format!("{member}/orphan_policies.rs");
+        let orphan_source = "#[derive(thiserror::Error)]\n#[error(\"could not read configuration\")]\nstruct ReadFailure(io::Error);\n\n// Your code here\nfn vague() { value.context(\"operation failed\"); }\n\nfn repeated() { value.context(\"reading configuration\").with_context(|| \"reading configuration\"); }\n\n#[test]\nfn test_basic() {}\n";
+        write(directory.path(), &orphan_path, orphan_source);
+        let output = cargo(
+            directory.path(),
+            &["xtask", "no-slop", "--fix", "--format", "json"],
+        );
+        assert_eq!(output.status.code(), Some(1));
+        let policies: Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert!(
+            policies["failures"].as_array().unwrap().is_empty(),
+            "{policies}"
+        );
+        for rule in [
+            "no-vague-error-messages",
+            "no-duplicate-error-context",
+            "require-error-sources",
+            "no-vague-test-names",
+            "no-boilerplate-comments",
+        ] {
+            let diagnostics: Vec<_> = policies["diagnostics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|diagnostic| diagnostic["rule"] == rule)
+                .collect();
+            assert_eq!(diagnostics.len(), 1, "{policies}");
+            assert!(diagnostics[0].get("fix").is_none());
+        }
+        assert_eq!(policies["summary"]["files_changed"], 0);
+        assert_eq!(
+            fs::read_to_string(directory.path().join(&orphan_path)).unwrap(),
+            orphan_source
+        );
         write(
             directory.path(),
             &format!(

@@ -35,7 +35,7 @@ Name one rule and give a concrete reason:
 let cached = read_cache().ok();
 ```
 
-The directive covers intervening leading comments and the next statement or item, including its attributes and nested code.
+The directive covers intervening leading comments and the next statement, item, or enum variant, including its attributes and nested code.
 It does not cover preceding comments or sibling declarations.
 Stack directives for multiple rules.
 Unknown IDs, empty reasons, and directives without a following statement or item fail the scan.
@@ -82,6 +82,37 @@ Free functions, receiver methods, infallible constructors, `new_*`, and `try_new
 Differently named aliases and fallibility hidden inside containers or explicit future types are not resolved; same-named custom `Result` and `Option` types follow the written-name convention.
 
 Both policies are diagnostic-only because changing message text can affect output contracts and renaming constructors requires updating references.
+
+## Error detail, source chains, and test names
+
+`no-vague-error-messages` checks the same error sites and literal wrappers as the lowercase rule.
+It matches only complete messages after ignoring case, collapsing whitespace, and removing trailing sentence punctuation from `.!?:;…`.
+The dictionary is `error`, `failed`, `failure`, `error occurred`, `an error occurred`, `something went wrong`, `operation failed`, `unknown error`, `unexpected error`, and `an unexpected error occurred`.
+Specific text and interpolation remain significant, so `operation failed: {path}` is accepted.
+Casing and vagueness can produce independent findings on the same literal.
+
+`no-duplicate-error-context` compares adjacent calls to `.context`, `.with_context`, `.wrap_err`, and `.wrap_err_with`, including mixed pairs.
+It accepts the same literal-only expression and string-conversion wrappers as the lowercase rule and zero-argument synchronous closures returning such a literal.
+It compares decoded strings exactly, so case and whitespace differences matter, while raw and escaped spellings of the same text are equivalent.
+Formatting macros, dynamic expressions, constants, and chains interrupted by another operation are outside its coverage.
+Each identical adjacent pair produces one finding at the outer method.
+
+`require-error-sources` checks structs and enum variants whose containing type explicitly derives `Error` or `thiserror::Error`.
+It recognizes direct fields of `io::Error`, `ParseIntError`, `ParseFloatError`, `Utf8Error`, and `FromUtf8Error`, using their full standard paths, available `core` or `alloc` paths, conventional module-qualified forms, and the distinct short names.
+Bare `Error`, renamed imports, custom error types, references, and container wrappers are not resolved.
+It accepts `#[source]`, `#[from]`, a field named `source`, or `#[error(transparent)]`, and otherwise reports one finding per wrapper containing recognized candidates.
+It skips conditional `cfg_attr` forms on the containing type, wrapper, or fields rather than guessing their effect.
+Place a local exception above the struct or enum variant to preserve an intentional source-chain policy.
+
+`no-vague-test-names` uses the same attributed-test recognition as `require-test-prefix`, including qualified async attributes and nested `cfg_attr`.
+It rejects names with an empty suffix after `test_`, an ASCII numeric-only suffix, or exactly `basic`, `works`, `example`, `simple`, `test`, or `case`.
+It accepts names such as `test_parse`, `test_smoke`, and `test_basic_auth`, and leaves helpers and missing-prefix cases to their existing policies.
+
+All four rules are diagnostic-only, including in tests, and their dictionaries and recognized paths are editable in the copied source.
+The scanner matches written conventions without proving the identity of same-named custom APIs, derives, or types.
+
+The `no-boilerplate-comments` rule also matches `add your implementation here`, `replace with your actual implementation`, `replace this with your actual implementation`, `your code here`, and `implementation goes here`, using its existing case, whitespace, and trailing-punctuation normalization.
+These scaffolding reminders receive no automatic edit because they may indicate missing behavior; existing empty labels such as `Main logic` remain fixable.
 
 ## Read scan results
 

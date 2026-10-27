@@ -115,28 +115,43 @@ fn normalized(body: &str) -> String {
 }
 
 pub(crate) fn check_boilerplate(_file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
-    fn boilerplate(body: &str) -> bool {
+    fn scaffolding(body: &str) -> bool {
         matches!(
             normalized(body).as_str(),
-            "main logic"
-                | "core logic"
-                | "business logic"
-                | "helper function"
-                | "entry point"
-                | "error handling"
-                | "end if"
-                | "end loop"
-                | "end function"
+            "add your implementation here"
+                | "replace with your actual implementation"
+                | "replace this with your actual implementation"
+                | "your code here"
+                | "implementation goes here"
         )
+    }
+
+    fn boilerplate(body: &str) -> bool {
+        scaffolding(body)
+            || matches!(
+                normalized(body).as_str(),
+                "main logic"
+                    | "core logic"
+                    | "business logic"
+                    | "helper function"
+                    | "entry point"
+                    | "error handling"
+                    | "end if"
+                    | "end loop"
+                    | "end function"
+            )
     }
     check(
         context,
         "no-boilerplate-comments",
         boilerplate,
-        "Remove the label or explain a concrete decision, constraint, or invariant.",
+        "Remove empty labels, and replace scaffolding reminders with the intended behavior or a concrete remaining task.",
     )
     .into_iter()
-    .map(|finding| remove_comment(context, finding))
+    .map(|finding| {
+        let body = context.source[finding.start.byte..finding.end.byte].trim_start_matches('/').trim();
+        if scaffolding(body) { finding } else { remove_comment(context, finding) }
+    })
     .collect()
 }
 

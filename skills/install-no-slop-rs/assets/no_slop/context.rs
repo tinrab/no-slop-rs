@@ -165,6 +165,11 @@ impl<'ast> Visit<'ast> for Index {
         visit::visit_trait_item(self, item);
     }
 
+    fn visit_variant(&mut self, variant: &'ast syn::Variant) {
+        self.targets.push(variant.span().byte_range());
+        visit::visit_variant(self, variant);
+    }
+
     fn visit_item_mod(&mut self, item: &'ast ItemMod) {
         self.record_test(&item.attrs, item.span());
         visit::visit_item_mod(self, item);

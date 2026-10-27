@@ -1,15 +1,20 @@
 //! Each rule owns its traversal. Add a function and register it here to add a rule.
 
 mod comments;
+mod duplicate_context;
 mod error_discard;
 mod error_messages;
+mod error_sources;
+mod error_support;
 mod fallible_constructors;
 mod grouped_imports;
 mod lint_suppressions;
 mod readable_spacing;
 mod string_errors;
 mod stringified_errors;
+mod test_names;
 mod test_prefix;
+mod vague_errors;
 mod vague_names;
 
 use syn::{File, Path};
@@ -24,6 +29,30 @@ pub(crate) struct Rule {
 }
 
 pub(crate) const RULES: &[Rule] = &[
+    Rule {
+        id: "no-vague-error-messages",
+        fixable: false,
+        description: "Replace exact generic error messages with operation-specific explanations.",
+        check: vague_errors::check,
+    },
+    Rule {
+        id: "no-duplicate-error-context",
+        fixable: false,
+        description: "Avoid adjacent literal error contexts that repeat the same message.",
+        check: duplicate_context::check,
+    },
+    Rule {
+        id: "require-error-sources",
+        fixable: false,
+        description: "Declare a source when a thiserror wrapper retains a recognized standard error.",
+        check: error_sources::check,
+    },
+    Rule {
+        id: "no-vague-test-names",
+        fixable: false,
+        description: "Replace placeholder and numeric-only test names with descriptions of behavior.",
+        check: test_names::check,
+    },
     Rule {
         id: "require-lowercase-error-messages",
         fixable: false,
