@@ -1,5 +1,7 @@
 //! Lowercase openings at the error sites recognized by the shared collector.
 
+use std::iter;
+
 use syn::File;
 
 use super::{
@@ -20,14 +22,14 @@ fn capitalized(message: &str, formatted: bool) -> bool {
         if ch.is_lowercase() {
             return false;
         }
-        if ch.to_lowercase().ne(std::iter::once(ch)) {
+        if ch.to_lowercase().ne(iter::once(ch)) {
             return true;
         }
     }
     false
 }
 
-pub(crate) fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
+pub fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
     error_support::messages(file).into_iter().filter(|message| capitalized(&message.literal.value(), message.formatted)).map(|message| context.report(
         "require-lowercase-error-messages", message.literal.span(),
         "error message should begin with lowercase prose",

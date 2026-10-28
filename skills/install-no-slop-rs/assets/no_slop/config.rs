@@ -11,7 +11,7 @@ use super::{diagnostic::Level, rules};
 
 #[derive(Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct Config {
+pub struct Config {
     #[serde(default)]
     pub exclude: Vec<String>,
     #[serde(default)]
@@ -51,7 +51,7 @@ impl Config {
 }
 
 /// Always omit artifacts, dependency copies, and installed skill source bundles.
-pub(crate) fn default_excluded(path: &Path) -> bool {
+pub fn default_excluded(path: &Path) -> bool {
     path.components().any(|component| {
         matches!(
             component.as_os_str().to_str(),

@@ -1,15 +1,13 @@
 # Configure policy and interpret scans
 
-Apply configuration changes only to an application that belongs to an existing Cargo workspace.
-Leave standalone applications outside a workspace unchanged and explain the workspace requirement.
-
+Use this reference within an existing Cargo workspace, following the eligibility check in [SKILL.md](../SKILL.md).
 All shipped rules default to errors on a fresh installation.
-Read the installed registry or run `cargo xtask no-slop --list-rules` for the actual rule IDs.
-Preserve existing settings on updates and adopt new rules only when their policy is authorized.
+For updates, preserve policy as described in the [update procedure](update.md#merge-runtime-and-policy-changes).
+The installed registry and rule source are authoritative when the project has customizations.
 
-## Configure the workspace
+## Configure the application workspace
 
-Put configuration in the application workspace root's manifest, including when xtask has its own workspace:
+Put policy in the application workspace root's manifest, including when xtask has its own workspace:
 
 ```toml
 [workspace.metadata.no-slop]
@@ -19,149 +17,117 @@ exclude = ["crates/bindings/src/generated/**"]
 no-vague-type-names = "warn"
 ```
 
-Levels are `error`, `warn`, and `off`.
-Unknown rule IDs, fields, levels, and invalid globs fail validation.
-Exclusion paths are workspace-relative, except that files outside the workspace use absolute paths.
-Keep handwritten wrappers and tooling in coverage.
+Levels are `error`, `warn`, and `off`; omitted levels default to `error`.
+Unknown IDs, fields, levels, and invalid globs fail validation.
+Run `cargo xtask no-slop --list-rules` to inspect the installed rule IDs and fix support.
+Keep scanner dependency declarations in xtask; workspace metadata configures policy, not dependencies.
+
+Exclusion patterns match workspace-relative paths, or absolute paths for source outside the workspace.
+Exclude generated bindings and deliberately invalid parser fixtures where appropriate, keeping handwritten application and tooling code in coverage.
 Leading `@generated` comments and bindgen headers skip generated files.
-Do not add those headers to handwritten files to silence findings.
+Do not add generated-file markers to handwritten files to silence findings.
 
 ## Explain local exceptions
 
 Name one rule and give a concrete reason:
 
 ```rust
-// no-slop-allow: no-silent-error-discard -- a missing cache entry is normal
-let cached = read_cache().ok();
+// no-slop-allow: require-lowercase-error-messages -- preserve the protocol's exact wording
+let error = std::io::Error::other("Connection rejected");
 ```
 
 The directive covers intervening leading comments and the next statement, item, or enum variant, including its attributes and nested code.
 It does not cover preceding comments or sibling declarations.
 Stack directives for multiple rules.
-Unknown IDs, empty reasons, and directives without a following statement or item fail the scan.
+Unknown IDs, empty reasons, and directives without a following supported target fail the scan.
 Strings, doc comments, block comments, and opaque macro bodies cannot introduce directives.
 
-## Understand coverage
+## Understand coverage and customization
 
-The default scan includes every application workspace member, including a member xtask.
-Use `-p <package>` to select members and `--manifest-path <application-manifest>` to select the workspace.
-Generated files, vendor directories, build output, common agent directories, and bundled skill assets are excluded.
-The scanner does not follow symlinks.
-Source enumeration includes orphan Rust files, so exclude deliberately invalid parser fixtures.
+The default scan includes every application workspace member, including a member xtask, regardless of Cargo's `default-members`.
+Use repeated `-p <package>` options to select members and the scanner's `--manifest-path <application-manifest>` to select the application workspace.
+An independent xtask is a separate workspace and is not automatically an application member.
 
-Inactive cfg branches are inspected without macro expansion or type inference.
-Checks follow written method and type names without resolving imported aliases.
-The string-error contract rule exempts recognized test scopes, while comment rules also check tests.
-Comment rules inspect ordinary line comments and leave rustdoc, block comments, strings, and macro payloads alone.
-The error-stringification rule recognizes direct untyped synchronous closures, leaving typed closures, named callbacks, and indirect conversions outside its scope.
-The `require-grouped-imports` rule merges consecutive imports with shared written roots and nested prefixes in files, inline modules, and blocks.
-It puts `std`, `core`, and `alloc` first, other roots next, and `crate`, `self`, and `super` last, with blank lines between categories.
-It preserves first-seen roots within each category and accepts compact groups without requiring alphabetical order or vertical formatting.
-Attributes, attached or internal comments, local exception directives, and empty use groups are boundaries that it does not rewrite or cross.
-It preserves visibility, aliases, existing wildcards, duplicates, and leading `::`, introduces no wildcards, and does not move imports to the top of a scope.
-Root categories follow written spelling without resolving local modules or external crates.
-Plain terminal imports and explicit `self` imports remain distinct because they bind different namespaces, so some shared prefixes must remain repeated.
-Read the installed rule modules for exact patterns and exceptions.
+The scanner uses locked Cargo metadata and enumerates workspace-owned Rust source, including orphan files and inactive cfg branches.
+It skips generated files, vendor directories, build output, common agent directories, and its bundled skill assets, and does not follow source symlinks.
+It does not compile application targets, expand macros, resolve imported aliases, or infer types.
+Selected conventional macro arguments are parsed by error-message rules, while unrelated macro payloads remain opaque.
+Same-named custom APIs and types can need local exceptions because matching follows written conventions.
 
-## Error-message and constructor naming policies
+Edit the installed registry to add or remove rules and edit individual rule modules to change dictionaries or recognized syntax.
+Keep new checks generic and syntax-based, document their limits, and test accepted and rejected forms using the project's test layout.
+Use Clippy for behavior already covered by its lints rather than duplicating those checks.
 
-`require-lowercase-error-messages` checks the opening of literal messages at conventional error APIs, including in tests.
-It recognizes thiserror-style `#[error("...")]` attributes on structs and enum variants; bare or `anyhow::`, `eyre::`, and `color_eyre::eyre::` error macros named `anyhow`, `eyre`, `bail`, `ensure`, or `format_err`; and `.context`, `.with_context`, `.wrap_err`, and `.wrap_err_with` methods.
-It also recognizes `Err`, `Result::Err`, `std::result::Result::Err`, `core::result::Result::Err`, `.ok_or`, `.ok_or_else`, and `new` or `other` calls on `Error`, `io::Error`, or `std::io::Error`.
-Supported messages are normal or raw string literals, literal `format!` templates including `std::format!` and `alloc::format!`, and argument-free `.to_owned()`, `.to_string()`, or `.into()` wrappers around those expressions.
-Lazy methods require a zero-argument synchronous closure whose body reduces to a supported expression through parentheses or single-expression blocks.
-The first cased Unicode character in the initial static text must be lowercase; formatted messages stop at the first interpolation field, and escaped braces remain literal text.
-Capitalization later in a message and trailing punctuation are unrestricted, while required uppercase openings such as protocol names need a local exception.
-Constants, dynamic expressions, imported aliases, UFCS context calls, `#[error(transparent)]`, nested `cfg_attr` attributes, handwritten `Display`, logging, and panic messages are outside its coverage.
-Names are matched by spelling without resolving their definitions, so same-named custom APIs can need exceptions.
+The shipped policies have these important boundaries:
 
-`require-create-for-fallible-constructors` requires receiver-free associated functions named exactly `new` to use `create` or a descriptive `create_*` name when their explicit outer return type ends in `Result` or `Option`.
-It checks inherent implementations and trait declarations, including private, asynchronous, and test code, and accepts qualified paths and parenthesized return types.
-Trait implementations are exempt because their names are constrained by the trait contract.
-Free functions, receiver methods, infallible constructors, `new_*`, and `try_new` names are unaffected.
-Differently named aliases and fallibility hidden inside containers or explicit future types are not resolved; same-named custom `Result` and `Option` types follow the written-name convention.
+| Policy                                                        | Coverage limits                                                                                                                                                               |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `require-test-prefix`, `no-vague-test-names`                  | Only test-attributed functions, including qualified async test attributes and nested `cfg_attr`; helpers in test modules are exempt                                           |
+| `require-readable-spacing`                                    | Sibling declarations; imports, external modules, and single-line constants can form compact groups                                                                            |
+| `require-grouped-imports`                                     | Consecutive use runs in files, inline modules, and blocks; attributes, comments attached to imports, local exceptions, and empty groups are boundaries                        |
+| `no-string-errors`                                            | Explicit `Result` string-error contracts and type aliases; recognized test-only contracts are exempt                                                                          |
+| `no-blanket-lint-suppression`                                 | `warnings` and `clippy::all` in `allow` or `expect`, including nested `cfg_attr`                                                                                              |
+| `no-vague-type-names`                                         | Written type names using generic `Manager`, `Helper`, `Processor`, or `Data` naming patterns                                                                                  |
+| Comment rules                                                 | Ordinary line comments; rustdoc, block comments, strings, and opaque macro payloads are excluded                                                                              |
+| `no-stringified-error-mapping`                                | Direct untyped synchronous `map_err` closures returning the bound error's `.to_string()`                                                                                      |
+| `require-lowercase-error-messages`, `no-vague-error-messages` | Literal messages at recognized thiserror, anyhow/eyre, context, `Err`, `.ok_or`, and I/O error sites; dynamic messages and handwritten `Display` are excluded                 |
+| `no-duplicate-error-context`                                  | Identical decoded literals on adjacent context calls, including literal-only lazy closures; formatting macros and interrupted chains are excluded                             |
+| `require-create-for-fallible-constructors`                    | Receiver-free associated `new` functions explicitly returning outer `Result` or `Option`; trait implementations, differently named aliases, and nested wrappers are excluded  |
+| `require-error-sources`                                       | Explicit `Error` or `thiserror::Error` derives with direct recognized standard-error fields; aliases, custom types, containers, and conditional `cfg_attr` forms are excluded |
 
-Both policies are diagnostic-only because changing message text can affect output contracts and renaming constructors requires updating references.
+Import grouping separates standard-library, external, and local roots without requiring alphabetical order, vertical formatting, or moving imports to the top of a scope.
+Plain imports and explicit `self` imports remain distinct, so some shared prefixes must stay repeated to preserve namespace behavior.
 
-## Error detail, source chains, and test names
+Lowercase checking examines the initial static text before any formatting placeholder and preserves capitalization later in the message.
+Vague-message, vague-test-name, and comment checks use narrow dictionaries rather than judgments about all prose or identifiers.
+Read the installed rule modules for exact dictionaries, paths, and supported expression wrappers.
 
-`no-vague-error-messages` checks the same error sites and literal wrappers as the lowercase rule.
-It matches only complete messages after ignoring case, collapsing whitespace, and removing trailing sentence punctuation from `.!?:;…`.
-The dictionary is `error`, `failed`, `failure`, `error occurred`, `an error occurred`, `something went wrong`, `operation failed`, `unknown error`, `unexpected error`, and `an unexpected error occurred`.
-Specific text and interpolation remain significant, so `operation failed: {path}` is accepted.
-Casing and vagueness can produce independent findings on the same literal.
+The source-chain rule recognizes `io::Error`, `ParseIntError`, `ParseFloatError`, `Utf8Error`, and `FromUtf8Error` in their supported standard spellings.
+It accepts `#[source]`, `#[from]`, a field named `source`, or `#[error(transparent)]`, and reports at most one finding per wrapper.
+Place an intentional source-chain exception above the struct or enum variant.
 
-`no-duplicate-error-context` compares adjacent calls to `.context`, `.with_context`, `.wrap_err`, and `.wrap_err_with`, including mixed pairs.
-It accepts the same literal-only expression and string-conversion wrappers as the lowercase rule and zero-argument synchronous closures returning such a literal.
-It compares decoded strings exactly, so case and whitespace differences matter, while raw and escaped spellings of the same text are equivalent.
-Formatting macros, dynamic expressions, constants, and chains interrupted by another operation are outside its coverage.
-Each identical adjacent pair produces one finding at the outer method.
-
-`require-error-sources` checks structs and enum variants whose containing type explicitly derives `Error` or `thiserror::Error`.
-It recognizes direct fields of `io::Error`, `ParseIntError`, `ParseFloatError`, `Utf8Error`, and `FromUtf8Error`, using their full standard paths, available `core` or `alloc` paths, conventional module-qualified forms, and the distinct short names.
-Bare `Error`, renamed imports, custom error types, references, and container wrappers are not resolved.
-It accepts `#[source]`, `#[from]`, a field named `source`, or `#[error(transparent)]`, and otherwise reports one finding per wrapper containing recognized candidates.
-It skips conditional `cfg_attr` forms on the containing type, wrapper, or fields rather than guessing their effect.
-Place a local exception above the struct or enum variant to preserve an intentional source-chain policy.
-
-`no-vague-test-names` uses the same attributed-test recognition as `require-test-prefix`, including qualified async attributes and nested `cfg_attr`.
-It rejects names with an empty suffix after `test_`, an ASCII numeric-only suffix, or exactly `basic`, `works`, `example`, `simple`, `test`, or `case`.
-It accepts names such as `test_parse`, `test_smoke`, and `test_basic_auth`, and leaves helpers and missing-prefix cases to their existing policies.
-
-All four rules are diagnostic-only, including in tests, and their dictionaries and recognized paths are editable in the copied source.
-The scanner matches written conventions without proving the identity of same-named custom APIs, derives, or types.
-
-The `no-boilerplate-comments` rule also matches `add your implementation here`, `replace with your actual implementation`, `replace this with your actual implementation`, `your code here`, and `implementation goes here`, using its existing case, whitespace, and trailing-punctuation normalization.
-These scaffolding reminders receive no automatic edit because they may indicate missing behavior; existing empty labels such as `Main logic` remain fixable.
-
-## Read scan results
+## Read results
 
 JSON contains `diagnostics`, `failures`, and `summary`.
 Locations include one-based lines, Unicode columns, and UTF-8 byte offsets.
-Fixable diagnostics also include a `fix` with UTF-8 byte offsets `start` and `end` and a `replacement` string.
+A fixable finding includes a `fix` with byte offsets `start` and `end` and a `replacement` string.
 
 | Exit | Meaning                                                         |
 | ---- | --------------------------------------------------------------- |
-| 0    | Complete scan with no error findings, though warnings may exist |
+| 0    | Complete scan without error findings; warnings can remain       |
 | 1    | Complete scan with error findings                               |
 | 2    | Invalid input or incomplete discovery, parsing, or I/O coverage |
 
 Application findings alone do not mean installation failed.
-Report coverage failures separately and fix application code only when cleanup was requested.
-For obsolete IDs, follow the [update migration](update.md#rule-ownership-migration) before changing local configuration.
+Investigate coverage failures separately, and change application code only when cleanup was requested.
+For obsolete IDs, follow the [older-rule migration](update.md#migrate-older-rule-ids-when-present).
 
-## Preview and apply mechanical fixes
+## Preview and apply fixes
 
 ```sh
 cargo xtask no-slop --fix-dry-run
 cargo xtask no-slop --fix
 ```
 
-Fixes are available for `require-grouped-imports`, `require-readable-spacing`, `no-decorative-comments`, and `no-boilerplate-comments`.
-They group shared import prefixes, insert blank lines, remove decorative separators and exact boilerplate, and preserve the text inside framed headings.
-Other rules remain diagnostic-only because their corrections require judgment or reference resolution.
-Some findings within a fixable rule can also remain without an automatic fix.
-Use `--list-rules` to see which rules support fixes.
+Only run these modes when application cleanup is part of the request.
+Both honor package selection, exclusions, configured levels, and local exceptions.
+Warnings are eligible for fixes; disabled and suppressed findings are not.
 
-Preview runs the same in-memory edit process as application and prints unified diffs without writing files.
-It reports the original findings and uses the normal scan exit status.
-Application reports findings remaining after successful edits, so it can still exit with code 1.
-The two modes cannot be combined with each other or with `--list-rules`.
+The shipped fixes cover import grouping, declaration spacing, decorative comments, and exact boilerplate labels.
+Scaffolding reminders such as `Your code here` stay diagnostic-only because they can indicate unfinished behavior.
+Other policies require manual correction, and some findings within a fixable rule can also lack an edit.
+Consult the installed registry and diagnostics rather than assuming every finding can be fixed.
 
-Both modes honor package selection, exclusions, levels, and local exceptions.
-Warnings are eligible for fixes, while disabled and suppressed findings are not.
-Ordinary scans remain read-only, and installation verification must not fix application code unless cleanup was requested.
+Preview runs the same in-memory edit process as application, prints unified diffs without writing source, and reports the original findings and scan status.
+Application reports findings remaining after successful edits and can still exit with code 1.
+The two modes cannot be combined with each other or `--list-rules`.
+When edits exist, JSON includes `changes` with each file's `path`, unified `diff`, and `applied` status, while the summary reports `files_changed` or `files_would_change`.
 
 Candidates must parse and preserve rustdoc comments, BOMs, and shebangs.
-Import regrouping must preserve the multiset of written paths, aliases, wildcards, explicit `self` imports, visibility, and absolute qualifiers in each lexical import run.
-All tokens outside those runs must remain identical.
-Edits preserve line endings and do not run rustfmt or require a clean Git working tree.
-Syntax validation does not establish that the application compiles or that its tests pass.
-Run the project's normal checks after applying fixes.
+Trivia edits preserve nontrivia tokens, and import regrouping must preserve written paths, aliases, wildcards, explicit `self` imports, visibility, and absolute qualifiers within each lexical import run.
+Other executable tokens must remain identical.
+The fixer preserves line endings and does not run rustfmt or require a clean Git working tree.
+Run the project's formatting, build, and test checks after applying edits; syntax validation alone does not establish that the application compiles.
 
-Files with invalid local exceptions, unsafe edit candidates, or write failures remain unchanged while other files can still be fixed.
-Files changed since scanning are rejected before replacement.
-Such failures produce exit code 2, and the report identifies successful changes separately.
-
-Fix-mode JSON adds `changes` containing per-file `path`, unified `diff`, and `applied` status when changes exist.
-The summary includes `files_changed` for application and `files_would_change` for preview.
+Invalid local exceptions, unsafe candidates, stale source snapshots, and write failures leave the affected file unchanged and produce exit code 2.
+Other files can still have been fixed, so inspect the reported changes as well as failures.

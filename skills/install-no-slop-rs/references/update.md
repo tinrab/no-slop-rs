@@ -1,26 +1,30 @@
 # Update a customized scanner
 
-Confirm that the application belongs to an existing Cargo workspace before changing an installed scanner.
-If it does not, explain that this skill cannot update its xtask and leave the project unchanged.
+Use this procedure after confirming the application belongs to an existing Cargo workspace as described in [SKILL.md](../SKILL.md).
 
-Find the active scanner through the xtask dispatcher and inspect local changes before editing it.
-Compare the installed files with the bundled runtime, using a temporary copy when helpful.
-Apply the requested changes while preserving customized rules, tests, diagnostics, configuration, and command wiring.
-Do not replace the installed directory wholesale or discard differences you do not understand.
-Defer unresolved policy conflicts and explain them to the user.
+## Merge runtime and policy changes
 
-Keep dependency changes in the xtask manifest, reusing existing compatible workspace dependencies without changing root declarations.
-Declare missing dependencies and scanner-specific features directly in xtask.
-Preserve disabled rules, levels, and exclusions, and enable new rules only when authorized.
+Find the active scanner through the dispatcher and compare it with the bundled runtime.
+Record its existing rule IDs, effective levels, exclusions, custom diagnostics, and local tests before merging.
+An absent rule-level entry currently means `error`; preserve effective behavior as well as explicit configuration.
 
-Run tests for adopted behavior and local customizations, then verify the installed command and application coverage.
-Report changes, checks, application findings, and unresolved issues.
-Do not clean up application code merely to make the update pass.
+Merge compatible changes into the installed copy, retaining local-only rules, tests, diagnostics, command wiring, and unrelated edits.
+Do not replace the directory wholesale or discard differences you do not understand.
+Add bundled helper modules required by adopted changes and retain modules still used by local code.
+Follow the user's requested scope and report unresolved conflicts instead of overwriting custom behavior.
 
-## Rule ownership migration
+For an update that preserves existing policy, configure newly introduced rule IDs as `off` unless their adoption is part of the request or established project policy.
+Preserve the effective levels of retained rules and report which new policies were adopted or left disabled.
+If an existing rule's patterns or fixes change, compare those changes with local customizations rather than treating a matching ID as proof of compatibility.
 
-This bundle removes checks already provided by Clippy.
-Review each local implementation before adopting its deletion.
+Merge current bundled dependency requirements only into the xtask manifest, preserving existing compatible dependencies and features.
+Use the [installation guidance](install.md#fit-the-cargo-layout) for workspace inheritance, features, lockfiles, and toolchain compatibility.
+Do not copy LICENSE files or authoring resources into the project.
+
+## Migrate older rule IDs when present
+
+Apply these migrations only when the installed scanner contains the old IDs and the replacement preserves its intended policy.
+Local implementations can contain custom behavior beyond their original shipped versions.
 
 | Removed ID                   | Clippy equivalent                 |
 | ---------------------------- | --------------------------------- |
@@ -30,12 +34,19 @@ Review each local implementation before adopting its deletion.
 | `require-lint-reason`        | `allow_attributes_without_reason` |
 | `no-inline-qualified-paths`  | `absolute_paths`                  |
 
-Rename `no-string-or-unit-errors` to `no-string-errors` for retained string-contract policy, preserving its level.
-Unit errors now belong to Clippy's `result_unit_err`.
-Remove obsolete keys and suppression directives only when adopting the corresponding removal.
-Unknown IDs continue to fail validation.
-Do not discard customized behavior or enable Clippy during migration.
+Rename `no-string-or-unit-errors` to `no-string-errors` when adopting the retained string-contract rule, preserving its level.
+Unit errors belong to Clippy's `result_unit_err`.
+The retired `no-silent-error-discard` policy has no replacement in this bundle.
+Remove its configuration entries and exception directives when adopting its removal.
 
-`no-silent-error-discard` leaves bare unused `.ok();` statements to Clippy's `unused_result_ok`.
-It retains the policy for consumed conversions and filters that discard errors.
-Apply the existing new-rule policy to `no-decorative-comments`, `no-boilerplate-comments`, `no-vague-todos`, and `no-stringified-error-mapping`.
+Remove obsolete configuration keys and suppression directives only when adopting the corresponding rule removal or rename.
+If a local implementation is retained, keep its registration and configuration valid.
+Unknown IDs fail validation, so do not leave references to deleted rules.
+Do not enable or configure Clippy as a side effect of this migration.
+
+## Verify the merged copy
+
+Use the [installation checks](install.md#verify-the-installation) with the active xtask manifest and application workspace.
+Run existing tests for local customizations and adopted behavior.
+Run the scanner without fix flags unless cleanup was requested.
+Report remaining application findings separately from failures and identify adopted rules, preserved customizations, and unresolved conflicts.

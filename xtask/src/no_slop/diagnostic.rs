@@ -98,12 +98,10 @@ pub struct Report {
 
 impl Report {
     pub fn exit_status(&self) -> u8 {
-        if !self.failures.is_empty() {
-            2
-        } else if self.diagnostics.iter().any(|d| d.level == Level::Error) {
-            1
+        if self.failures.is_empty() {
+            u8::from(self.diagnostics.iter().any(|d| d.level == Level::Error))
         } else {
-            0
+            2
         }
     }
 

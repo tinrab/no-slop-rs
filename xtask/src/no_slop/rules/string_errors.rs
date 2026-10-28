@@ -10,7 +10,7 @@ use syn::{
 
 use super::super::{context::Context, diagnostic::Diagnostic};
 
-pub(crate) fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
+pub fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
     struct Check<'a> {
         context: &'a Context<'a>,
         findings: Vec<Diagnostic>,
@@ -39,10 +39,11 @@ pub(crate) fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
 
     impl<'ast> Visit<'ast> for Check<'_> {
         fn visit_signature(&mut self, signature: &'ast Signature) {
-            if !self.context.is_test(signature.ident.span()) {
-                if let ReturnType::Type(_, ty) = &signature.output {
-                    self.contract(ty);
-                }
+            if let (false, ReturnType::Type(_, ty)) = (
+                self.context.is_test(signature.ident.span()),
+                &signature.output,
+            ) {
+                self.contract(ty);
             }
             visit::visit_signature(self, signature);
         }

@@ -17,7 +17,7 @@ struct Edge {
     test_only: bool,
 }
 
-pub(crate) fn propagate(files: &mut [ParsedFile]) {
+pub fn propagate(files: &mut [ParsedFile]) {
     let paths: BTreeMap<_, _> = files
         .iter()
         .enumerate()
@@ -120,31 +120,35 @@ fn collect(
             Some(path.value())
         });
         if let Some((_, items)) = &module.content {
-            let directory = match override_path {
-                Some(path) => attribute_directory.join(path),
-                None => directory.join(module.ident.to_string()),
-            };
+            let directory = override_path.map_or_else(
+                || directory.join(module.ident.to_string()),
+                |path| attribute_directory.join(path),
+            );
             collect(
                 items, &directory, &directory, test_only, source, paths, edges,
             );
         } else {
-            let candidates = match override_path {
-                Some(path) => vec![attribute_directory.join(path)],
-                None => vec![
-                    directory.join(format!("{}.rs", module.ident)),
-                    directory.join(module.ident.to_string()).join("mod.rs"),
-                ],
-            };
+            let candidates = override_path.map_or_else(
+                || {
+                    vec![
+                        directory.join(format!("{}.rs", module.ident)),
+                        directory.join(module.ident.to_string()).join("mod.rs"),
+                    ]
+                },
+                |path| vec![attribute_directory.join(path)],
+            );
             for candidate in candidates {
-                if let Ok(path) = candidate.canonicalize() {
-                    if let Some(&target) = paths.get(&path) {
-                        edges.push(Edge {
-                            source,
-                            target,
-                            test_only,
-                        });
-                    }
-                }
+                let Ok(path) = candidate.canonicalize() else {
+                    continue;
+                };
+                let Some(&target) = paths.get(&path) else {
+                    continue;
+                };
+                edges.push(Edge {
+                    source,
+                    target,
+                    test_only,
+                });
             }
         }
     }

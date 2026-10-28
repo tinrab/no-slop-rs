@@ -3,6 +3,7 @@
 use std::{
     collections::BTreeMap,
     ffi::OsString,
+    fmt::Write as _,
     fs,
     path::{Path, PathBuf},
 };
@@ -12,6 +13,12 @@ use cargo_metadata::{DependencyKind, MetadataCommand};
 use serde_json;
 use walkdir::WalkDir;
 
+/// Synchronize the bundled runtime or check that it matches the canonical source.
+///
+/// # Errors
+///
+/// Returns an error for invalid arguments, unavailable workspace metadata or files,
+/// failed writes, or stale assets when checking.
 pub fn run(args: &[OsString]) -> Result<()> {
     ensure!(
         args.is_empty() || args == [OsString::from("--check")],
@@ -30,7 +37,6 @@ fn sync(root: &Path, check: bool) -> Result<()> {
     for (path, bytes) in read_tree(&source)? {
         expected.insert(PathBuf::from("no_slop").join(path), bytes);
     }
-    expected.insert("no_slop/LICENSE".into(), fs::read(root.join("LICENSE"))?);
     expected.insert("dependencies.toml".into(), dependencies(root)?.into_bytes());
     if check {
         ensure!(
@@ -101,7 +107,7 @@ fn dependencies(root: &Path) -> Result<String> {
         "# Runtime requirements from the tested xtask manifest. Merge into the target xtask manifest.\n\n[dependencies]\n",
     );
     for (name, declaration) in dependencies {
-        text.push_str(&format!("{name} = {declaration}\n"));
+        writeln!(text, "{name} = {declaration}")?;
     }
     Ok(text)
 }

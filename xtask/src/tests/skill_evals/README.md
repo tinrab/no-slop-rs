@@ -21,9 +21,9 @@ Use these project layouts:
    Set `no-vague-type-names = "off"` and `no-boilerplate-comments = "warn"`.
    Retain a `ping` command and put `pub const LOCAL_SETTING: u8 = 37;` in the app.
    Stage the incoming bundle separately.
-4. **Workspace without xtask:** create an existing workspace containing an edition-2021 package named `release-app`.
+4. **Workspace without xtask:** create a virtual workspace with `members = ["app"]` and no `default-members`, containing an edition-2021 package named `release-app`.
    Put `pub struct UserManager;` in the application and add a `check-app` alias without creating an xtask.
-   Expect an xtask member to be added while preserving application code and aliases.
+   Expect an xtask member to be added while preserving application code, aliases, and the previous default package selection.
 5. **Unsupported standalone update:** create an application without a workspace declaration and an existing independent `tools/xtask` workspace.
    Add a customized scanner to that xtask and retain its existing alias.
    Expect the agent to check the application workspace and leave all files unchanged.
@@ -38,6 +38,7 @@ Save command output, exit codes, application and configuration snapshots, and un
 Check artifacts and behavior rather than relying on the agent's report.
 For unsupported projects, compare the entire project before and after to verify that refusal did not create a workspace, xtask, lockfile, or alias.
 For updates, enable the customized rule in a disposable fixture to verify its diagnostic without changing the project's policy.
+Include a rule added by the incoming bundle and confirm that a policy-preserving update leaves it off unless adoption was requested.
 
 Run the executable installation tests from the repository root:
 
@@ -45,4 +46,4 @@ Run the executable installation tests from the repository root:
 cargo test -p xtask --test install_skill --locked
 ```
 
-These tests copy the runtime directly into temporary workspaces and check packaging, builds, command wiring, local changes, and licensing.
+These tests copy the runtime directly into temporary workspaces and check packaging, builds, command wiring, local changes, and runtime-only copies.

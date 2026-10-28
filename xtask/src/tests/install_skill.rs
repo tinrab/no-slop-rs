@@ -129,10 +129,10 @@ fn fixture(directory: &Path, existing_workspace: bool) {
 
 #[test]
 fn test_bundle_contains_only_runtime_sources_and_dependencies() {
-    assert_eq!(
-        fs::read(root().join("skills/install-no-slop-rs/assets/no_slop/LICENSE")).unwrap(),
-        fs::read(root().join("LICENSE")).unwrap(),
-        "vendored source must retain its MIT notice"
+    assert!(
+        !root()
+            .join("skills/install-no-slop-rs/assets/no_slop/LICENSE")
+            .exists()
     );
     #[derive(Default)]
     struct TestCode {
@@ -214,10 +214,7 @@ fn test_copied_runtime_runs_and_preserves_local_changes() {
         assert!(!destination.join("tests").exists());
         assert!(destination.join("rules/readable_spacing.rs").is_file());
         assert!(destination.join("rules/comments.rs").is_file());
-        assert_eq!(
-            fs::read(destination.join("LICENSE")).unwrap(),
-            fs::read(root().join("LICENSE")).unwrap()
-        );
+        assert!(!destination.join("LICENSE").exists());
         // A runtime-only copy must build both normal and test targets without
         // any of this repository's test files or dev dependencies.
         success(cargo(

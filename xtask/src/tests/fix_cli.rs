@@ -82,7 +82,7 @@ fn test_demo_preview_apply_remaining_findings_compilation_and_idempotence() {
     let (directory, original) = demo();
     let path = directory.path().join("src/lib.rs");
     let initial = json(&scan(directory.path(), &[]), 1);
-    assert_eq!(initial["diagnostics"].as_array().unwrap().len(), 17);
+    assert_eq!(initial["diagnostics"].as_array().unwrap().len(), 16);
     assert_eq!(
         initial["diagnostics"]
             .as_array()
@@ -95,7 +95,7 @@ fn test_demo_preview_apply_remaining_findings_compilation_and_idempotence() {
     assert_eq!(fs::read_to_string(&path).unwrap(), original);
 
     let dry = json(&scan(directory.path(), &["--fix-dry-run"]), 1);
-    assert_eq!(dry["diagnostics"].as_array().unwrap().len(), 17);
+    assert_eq!(dry["diagnostics"].as_array().unwrap().len(), 16);
     assert_eq!(dry["summary"]["files_changed"], 0);
     assert_eq!(dry["summary"]["files_would_change"], 1);
     assert_eq!(dry["changes"][0]["applied"], false);
@@ -109,7 +109,7 @@ fn test_demo_preview_apply_remaining_findings_compilation_and_idempotence() {
     );
 
     let applied = json(&scan(directory.path(), &["--fix"]), 1);
-    assert_eq!(applied["diagnostics"].as_array().unwrap().len(), 13);
+    assert_eq!(applied["diagnostics"].as_array().unwrap().len(), 12);
     assert!(
         applied["diagnostics"]
             .as_array()

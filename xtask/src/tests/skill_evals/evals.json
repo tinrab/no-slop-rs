@@ -24,7 +24,7 @@
         "The independent xtask builds and tests through its own manifest and passes formatting checks.",
         "The scanner reports the application UserManager violation with exit 1 and no scan failures.",
         "An explicit application --manifest-path override works.",
-        "Copied runtime retains the MIT license.",
+        "Copied runtime contains no LICENSE file.",
         "Scanner dependencies are declared only in the xtask manifest, with no new or changed root workspace dependency declarations.",
         "Compatible existing workspace dependencies are inherited, while missing dependencies and scanner-specific features are declared directly in xtask."
       ]
@@ -40,9 +40,10 @@
         "The updated xtask builds, tests, and passes formatting checks.",
         "The application scan respects disabled rules and has no scan failures.",
         "The agent compares the installed scanner with the bundle and preserves local-only changes.",
-        "Copied runtime retains the MIT license.",
+        "Copied runtime contains no LICENSE file.",
         "Scanner dependencies are declared only in the xtask manifest, with no new or changed root workspace dependency declarations.",
-        "Compatible existing workspace dependencies are inherited, while missing dependencies and scanner-specific features are declared directly in xtask."
+        "Compatible existing workspace dependencies are inherited, while missing dependencies and scanner-specific features are declared directly in xtask.",
+        "For a policy-preserving update, newly introduced rule IDs remain off unless adopting them was requested; existing effective levels are preserved."
       ]
     },
     {
@@ -55,10 +56,10 @@
         "The installed scanner reports the application UserManager violation with exit 1 and no scan failures.",
         "The xtask passes normal/test builds and project formatting checks.",
         "Only runtime sources and normal dependencies are installed.",
-        "The installed module contains the runtime and license without generated tracking files.",
-        "Copied runtime retains the MIT license.",
+        "Copied runtime contains no LICENSE file.",
         "Scanner dependencies are declared only in the xtask manifest, with no new or changed root workspace dependency declarations.",
-        "Compatible existing workspace dependencies are inherited, while missing dependencies and scanner-specific features are declared directly in xtask."
+        "Compatible existing workspace dependencies are inherited, while missing dependencies and scanner-specific features are declared directly in xtask.",
+        "Adding xtask to a virtual workspace without explicit default-members preserves its previous default package selection."
       ]
     },
     {

@@ -46,9 +46,9 @@ fn test_statement_exception_does_not_leak_to_siblings() {
     let report = source_report(
         r#"
         fn f() {
-            // no-slop-allow: no-silent-error-discard -- absent cache is normal
-            let cached = load().ok();
-            let saved = save().ok();
+            // no-slop-allow: require-lowercase-error-messages -- preserve the cache protocol's wording
+            let cached = load().context("Could not read cache");
+            let saved = save().context("Could not save cache");
         }
     "#,
     );
@@ -61,9 +61,9 @@ fn test_strings_doc_comments_and_nested_block_comments_cannot_suppress() {
     let report = source_report(
         r###"
         fn f() {
-            let text = r#"// no-slop-allow: no-silent-error-discard -- fake"#;
-            /* outer /* // no-slop-allow: no-silent-error-discard -- fake */ end */
-            let loaded = load().ok();
+            let text = r#"// no-slop-allow: require-lowercase-error-messages -- fake"#;
+            /* outer /* // no-slop-allow: require-lowercase-error-messages -- fake */ end */
+            let loaded = load().context("Could not read cache");
         }
 
         /// no-slop-allow: no-vague-type-names -- fake
@@ -93,13 +93,16 @@ fn test_rejects_unknown_rules_empty_reasons_and_unattached_directives() {
 
 #[test]
 fn test_offsets_survive_bom_shebang_unicode_and_crlf() {
-    let source = "\u{feff}#!/usr/bin/env rust-script\r\nfn f() { let café = 0; let value = load().ok(); }\r\n";
+    let source = "\u{feff}#!/usr/bin/env rust-script\r\nfn f() { let café = 0; let value = load().context(\"Could not read cache\"); }\r\n";
     let report = source_report(source);
     assert!(report.failures.is_empty(), "{:?}", report.failures);
     let diagnostic = &report.diagnostics[0];
-    assert_eq!(&source[diagnostic.start.byte..diagnostic.end.byte], "ok");
+    assert_eq!(
+        &source[diagnostic.start.byte..diagnostic.end.byte],
+        "\"Could not read cache\""
+    );
     assert_eq!(diagnostic.start.line, 2);
-    assert_eq!(diagnostic.start.column, 43);
+    assert_eq!(diagnostic.start.column, 51);
 }
 
 #[test]
@@ -359,7 +362,7 @@ fn test_current_string_literal_forms_cannot_create_directives() {
             let raw = cr#"embedded " // no-slop-allow: unknown -- fake"#;
             let bytes = br#"embedded " /* // no-slop-allow: unknown -- fake */"#;
             let escaped = c"// no-slop-allow: unknown -- fake";
-            let result = value.ok();
+            let result = value.context("Could not read cache");
         }
     "###,
     );
@@ -372,9 +375,9 @@ fn test_statement_exception_does_not_cross_existing_code() {
     let report = source_report(
         r#"
         fn f() {
-            // no-slop-allow: no-silent-error-discard -- unrelated statement
+            // no-slop-allow: require-lowercase-error-messages -- unrelated statement
             let value = load();
-            let result = value.ok();
+            let result = value.context("Could not read cache");
         }
     "#,
     );
@@ -546,6 +549,7 @@ fn test_removed_rule_ids_are_rejected_in_configuration_and_directives() {
         "require-lint-reason",
         "no-inline-qualified-paths",
         "no-string-or-unit-errors",
+        "no-silent-error-discard",
     ] {
         let config = serde_json::json!({"no-slop": {"rules": {id: "off"}}});
         assert!(Config::parse(&config).is_err(), "{id}");
@@ -554,6 +558,22 @@ fn test_removed_rule_ids_are_rejected_in_configuration_and_directives() {
         ));
         assert_eq!(report.exit_status(), 2, "{id}");
     }
+}
+
+#[test]
+fn test_result_to_option_conversions_are_no_longer_reported() {
+    let report = source_report(
+        r#"
+        fn f() {
+            let value = load().ok();
+            let values = iter.filter_map(|item| item.ok());
+            let items = iter.filter_map(Result::ok);
+            let flattened = iter.flat_map(std::result::Result::ok);
+        }
+    "#,
+    );
+    assert!(report.failures.is_empty(), "{report:?}");
+    assert!(report.diagnostics.is_empty(), "{report:?}");
 }
 
 #[test]

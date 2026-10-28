@@ -62,7 +62,7 @@ fn check(
         .collect()
 }
 
-pub(crate) fn check_decorative(_file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
+pub fn check_decorative(_file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
     fn decorative(body: &str) -> bool {
         ['=', '-', '*'].into_iter().any(|delimiter| {
             let leading = body.chars().take_while(|&c| c == delimiter).count();
@@ -114,7 +114,7 @@ fn normalized(body: &str) -> String {
         .to_ascii_lowercase()
 }
 
-pub(crate) fn check_boilerplate(_file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
+pub fn check_boilerplate(_file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
     fn scaffolding(body: &str) -> bool {
         matches!(
             normalized(body).as_str(),
@@ -155,7 +155,7 @@ pub(crate) fn check_boilerplate(_file: &File, context: &Context<'_>) -> Vec<Diag
     .collect()
 }
 
-pub(crate) fn check_todos(_file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
+pub fn check_todos(_file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
     fn vague(body: &str) -> bool {
         let body = normalized(body);
         let task = ["todo", "fixme"].into_iter().find_map(|marker| {

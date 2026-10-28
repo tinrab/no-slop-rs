@@ -1,6 +1,6 @@
 //! Written import trees shared by the grouping rule and fix validation.
 
-use std::ops::Range;
+use std::{mem, ops::Range};
 
 use syn::{
     Block, File, Item, ItemMod, ItemUse, Stmt, UseTree,
@@ -11,16 +11,16 @@ use syn::{
 use super::{fix, source};
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub(crate) struct Import {
+pub struct Import {
     pub path: Vec<String>,
     pub alias: Option<String>,
     pub glob: bool,
-    pub self_import: bool,
+    pub type_only: bool,
     pub absolute: bool,
     pub visibility: Vec<String>,
 }
 
-pub(crate) fn flatten(item: &ItemUse, source: &str) -> Vec<Import> {
+pub fn flatten(item: &ItemUse, source: &str) -> Vec<Import> {
     fn tree(
         node: &UseTree,
         prefix: &mut Vec<String>,
@@ -69,11 +69,11 @@ pub(crate) fn flatten(item: &ItemUse, source: &str) -> Vec<Import> {
     let visibility = fix::tokens(&source[item.vis.span().byte_range()]);
     leaves
         .into_iter()
-        .map(|(path, alias, glob, self_import)| Import {
+        .map(|(path, alias, glob, type_only)| Import {
             path,
             alias,
             glob,
-            self_import,
+            type_only,
             absolute: item.leading_colon.is_some(),
             visibility: visibility.clone(),
         })
@@ -81,7 +81,7 @@ pub(crate) fn flatten(item: &ItemUse, source: &str) -> Vec<Import> {
 }
 
 /// Attributed imports and all non-use items/statements delimit lexical runs.
-pub(crate) fn runs(file: &File) -> Vec<Vec<&ItemUse>> {
+pub fn runs(file: &File) -> Vec<Vec<&ItemUse>> {
     #[derive(Default)]
     struct Runs<'a>(Vec<Vec<&'a ItemUse>>);
 
@@ -92,7 +92,7 @@ pub(crate) fn runs(file: &File) -> Vec<Vec<&ItemUse>> {
                 if let Some(item) = item.filter(|item| item.attrs.is_empty()) {
                     run.push(item);
                 } else if !run.is_empty() {
-                    self.0.push(std::mem::take(&mut run));
+                    self.0.push(mem::take(&mut run));
                 }
             }
             if !run.is_empty() {
@@ -147,18 +147,18 @@ pub(crate) fn runs(file: &File) -> Vec<Vec<&ItemUse>> {
     runs.0
 }
 
-pub(crate) fn range(run: &[&ItemUse]) -> Range<usize> {
+pub fn range(run: &[&ItemUse]) -> Range<usize> {
     run[0].span().byte_range().start..run.last().unwrap().span().byte_range().end
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub(crate) enum Token {
+pub enum Token {
     Written(String),
     Imports(Vec<Import>),
 }
 
 /// Replace each run with a multiset, retaining every surrounding token and scope.
-pub(crate) fn normalized(source: &str) -> anyhow::Result<Vec<Token>> {
+pub fn normalized(source: &str) -> anyhow::Result<Vec<Token>> {
     let prepared = source::prepare(source);
     let file = syn::parse_file(&prepared)?;
     let mut result = Vec::new();

@@ -1,4 +1,4 @@
-//! Only direct inline map_err closures returning the bound error's to_string().
+//! Only direct inline `map_err` closures returning the bound error's `to_string()`.
 //! Method spellings follow Result conventions; types and aliases are not resolved.
 
 use syn::{
@@ -57,7 +57,7 @@ fn stringifies_error(call: &ExprMethodCall) -> bool {
             .is_some_and(|ident| ident.unraw() == binding.ident.unraw())
 }
 
-pub(crate) fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
+pub fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
     struct Check<'a> {
         context: &'a Context<'a>,
         findings: Vec<Diagnostic>,

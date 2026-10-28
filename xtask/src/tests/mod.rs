@@ -2,7 +2,6 @@
 
 mod comments;
 mod duplicate_context;
-mod error_discard;
 mod error_messages;
 mod error_sources;
 mod fallible_constructors;

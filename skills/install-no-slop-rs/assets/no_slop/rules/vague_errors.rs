@@ -29,7 +29,7 @@ fn vague(message: &str) -> bool {
     )
 }
 
-pub(crate) fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
+pub fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
     error_support::messages(file)
         .into_iter()
         .filter(|message| vague(&message.literal.value()))

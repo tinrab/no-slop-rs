@@ -13,13 +13,13 @@ use super::super::{
 struct Node {
     name: String,
     aliases: Vec<(Option<String>, bool)>,
-    children: Vec<Node>,
+    children: Vec<Self>,
 }
 
 impl Node {
-    fn insert(&mut self, path: &[String], alias: Option<String>, self_import: bool) {
+    fn insert(&mut self, path: &[String], alias: Option<String>, type_only: bool) {
         let Some((name, rest)) = path.split_first() else {
-            self.aliases.push((alias, self_import));
+            self.aliases.push((alias, type_only));
             return;
         };
         let index = self
@@ -27,33 +27,34 @@ impl Node {
             .iter()
             .position(|node| &node.name == name)
             .unwrap_or_else(|| {
-                self.children.push(Node {
+                self.children.push(Self {
                     name: name.clone(),
-                    ..Node::default()
+                    ..Self::default()
                 });
                 self.children.len() - 1
             });
-        self.children[index].insert(rest, alias, self_import);
+        self.children[index].insert(rest, alias, type_only);
     }
 
     fn render(&self) -> Vec<String> {
-        let named = |name: &str, alias: &Option<String>| match alias {
-            Some(alias) => format!("{name} as {alias}"),
-            None => name.to_owned(),
+        let named = |name: &str, alias: &Option<String>| {
+            alias
+                .as_ref()
+                .map_or_else(|| name.to_owned(), |alias| format!("{name} as {alias}"))
         };
         if self.children.is_empty() {
             return self
                 .aliases
                 .iter()
-                .map(|(alias, self_import)| {
+                .map(|(alias, type_only)| {
                     named(
-                        &format!("{}{}", self.name, if *self_import { "::self" } else { "" }),
+                        &format!("{}{}", self.name, if *type_only { "::self" } else { "" }),
                         alias,
                     )
                 })
                 .collect();
         }
-        let mut children: Vec<_> = self.children.iter().flat_map(Node::render).collect();
+        let mut children: Vec<_> = self.children.iter().flat_map(Self::render).collect();
         // Preserve explicit self imports: they bind only the type namespace.
         // Plain terminal imports must remain separate from their child paths.
         let mut separate = Vec::new();
@@ -120,7 +121,7 @@ fn grouped(leaves: impl Iterator<Item = Import>) -> Vec<(u8, String)> {
             });
         groups[index]
             .tree
-            .insert(&path[1..], leaf.alias, leaf.self_import);
+            .insert(&path[1..], leaf.alias, leaf.type_only);
     }
     groups.sort_by_key(|group| category(&group.root));
     groups
@@ -194,7 +195,7 @@ fn protected(item: &ItemUse, context: &Context<'_>) -> bool {
     })
 }
 
-pub(crate) fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
+pub fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
     let mut findings = Vec::new();
     for run in imports::runs(file) {
         for run in run

@@ -18,20 +18,37 @@ use super::{
 };
 
 #[derive(Clone, Copy, Default)]
-pub(crate) enum Format {
+pub enum Format {
     #[default]
     Text,
     Json,
 }
 
 #[derive(Default)]
-pub(crate) struct Options {
+pub enum FixMode {
+    #[default]
+    None,
+    Apply,
+    Preview,
+}
+
+impl FixMode {
+    pub const fn applies(&self) -> bool {
+        matches!(self, Self::Apply)
+    }
+
+    pub const fn enabled(&self) -> bool {
+        !matches!(self, Self::None)
+    }
+}
+
+#[derive(Default)]
+pub struct Options {
     pub manifest_path: Option<PathBuf>,
     pub packages: Vec<String>,
     pub format: Format,
     pub list_rules: bool,
-    pub fix: bool,
-    pub fix_dry_run: bool,
+    pub fix_mode: FixMode,
     pub help: bool,
 }
 
@@ -44,7 +61,7 @@ impl Options {
                 Some("--manifest-path") => {
                     options.manifest_path = Some(PathBuf::from(
                         args.next().context("--manifest-path needs a path")?,
-                    ))
+                    ));
                 }
                 Some("-p" | "--package") => options.packages.push(
                     args.next()
@@ -61,16 +78,23 @@ impl Options {
                     }
                 }
                 Some("--list-rules") => options.list_rules = true,
-                Some("--fix") => options.fix = true,
-                Some("--fix-dry-run") => options.fix_dry_run = true,
+                Some("--fix") => {
+                    if matches!(options.fix_mode, FixMode::Preview) {
+                        bail!("--fix and --fix-dry-run cannot be combined");
+                    }
+                    options.fix_mode = FixMode::Apply;
+                }
+                Some("--fix-dry-run") => {
+                    if options.fix_mode.applies() {
+                        bail!("--fix and --fix-dry-run cannot be combined");
+                    }
+                    options.fix_mode = FixMode::Preview;
+                }
                 Some("--help" | "-h") => options.help = true,
                 _ => bail!("unknown no-slop argument: {}", arg.to_string_lossy()),
             }
         }
-        if options.fix && options.fix_dry_run {
-            bail!("--fix and --fix-dry-run cannot be combined");
-        }
-        if options.list_rules && (options.fix || options.fix_dry_run) {
+        if options.list_rules && options.fix_mode.enabled() {
             bail!("fix modes cannot be combined with --list-rules");
         }
         Ok(options)
@@ -78,6 +102,7 @@ impl Options {
 }
 
 /// Run the scanner from an existing xtask command dispatcher.
+#[must_use]
 pub fn run(args: &[OsString]) -> ExitCode {
     let options = match Options::parse(args) {
         Ok(options) => options,

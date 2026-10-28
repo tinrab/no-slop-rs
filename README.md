@@ -6,7 +6,7 @@ The rules live in your repository and run through `cargo xtask no-slop`.
 
 ## Install the skill
 
-From your target Cargo workspace, install the skill from a local checkout of this repository:
+From your target Cargo workspace, install the skill:
 
 ```sh
 npx skills add tinrab/no-slop-rs --skill install-no-slop-rs
@@ -156,15 +156,6 @@ Use meaningful error types instead of `String` or `&str` in `Result` error contr
 +fn load() -> Result<Config, ConfigError> {
      read_config()
  }
-```
-
-### `no-silent-error-discard`
-
-Preserve errors lost through `.ok()` or `Result::ok` filters, or explain intentional loss with a local exception.
-
-```diff
--let port = input.parse::<u16>().ok();
-+let port = input.parse::<u16>()?;
 ```
 
 ### `no-blanket-lint-suppression`

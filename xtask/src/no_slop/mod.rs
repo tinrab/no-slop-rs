@@ -76,14 +76,14 @@ pub(crate) fn scan(options: &Options) -> Result<Report> {
         let context = Context::new(path, &file.source, &file.syntax, file.is_test);
         let mut local = Report::default();
         check_file(&context, &file.syntax, &workspace.config, &mut local);
-        if (options.fix || options.fix_dry_run) && local.failures.is_empty() {
+        if options.fix_mode.enabled() && local.failures.is_empty() {
             let change = (|| -> Result<_> {
                 let candidate = fix::plan(path, &file.source, file.is_test, &workspace.config)?;
                 if candidate == file.source {
                     return Ok(None);
                 }
                 let syntax = syn::parse_file(&source::prepare(&candidate))?;
-                if options.fix {
+                if options.fix_mode.applies() {
                     fix::commit(&file.path, &file.source, &candidate)?;
                 }
                 Ok(Some((candidate, syntax)))
@@ -101,9 +101,9 @@ pub(crate) fn scan(options: &Options) -> Result<Report> {
                     report.changes.push(FileChange {
                         path: path.to_owned(),
                         diff,
-                        applied: options.fix,
+                        applied: options.fix_mode.applies(),
                     });
-                    if options.fix {
+                    if options.fix_mode.applies() {
                         report.summary.files_changed += 1;
                         local = Report::default();
                         let context = Context::new(path, &candidate, &syntax, file.is_test);

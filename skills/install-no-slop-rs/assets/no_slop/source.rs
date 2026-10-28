@@ -5,25 +5,25 @@ use std::ops::Range;
 use ra_ap_rustc_lexer::{self, FrontmatterAllowed, TokenKind};
 
 #[derive(Debug)]
-pub(crate) struct Comment<'a> {
+pub struct Comment<'a> {
     pub range: Range<usize>,
     pub text: &'a str,
     pub ordinary_line: bool,
 }
 
-pub(crate) fn prefix_len(source: &str) -> usize {
+pub fn prefix_len(source: &str) -> usize {
     let bom = if source.starts_with('\u{feff}') { 3 } else { 0 };
     let shebang = ra_ap_rustc_lexer::strip_shebang(&source[bom..]).unwrap_or(0);
     bom + shebang
 }
 
 /// Mask the prefix syn strips so its spans address the original file.
-pub(crate) fn prepare(source: &str) -> String {
+pub fn prepare(source: &str) -> String {
     let prefix = prefix_len(source);
     format!("{}{}", " ".repeat(prefix), &source[prefix..])
 }
 
-pub(crate) fn comments(source: &str) -> Vec<Comment<'_>> {
+pub fn comments(source: &str) -> Vec<Comment<'_>> {
     let mut offset = prefix_len(source);
     ra_ap_rustc_lexer::tokenize(&source[offset..], FrontmatterAllowed::No)
         .filter_map(|token| {
@@ -46,7 +46,7 @@ pub(crate) fn comments(source: &str) -> Vec<Comment<'_>> {
         .collect()
 }
 
-pub(crate) fn trivia_only(source: &str) -> bool {
+pub fn trivia_only(source: &str) -> bool {
     ra_ap_rustc_lexer::tokenize(source, FrontmatterAllowed::No).all(|token| {
         matches!(
             token.kind,
@@ -55,7 +55,7 @@ pub(crate) fn trivia_only(source: &str) -> bool {
     })
 }
 
-pub(crate) fn is_generated(source: &str, comments: &[Comment<'_>]) -> bool {
+pub fn is_generated(source: &str, comments: &[Comment<'_>]) -> bool {
     let mut previous_end = 0;
     for comment in comments {
         if !source[previous_end..comment.range.start]

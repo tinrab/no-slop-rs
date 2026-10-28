@@ -14,7 +14,7 @@ struct Suppression<'a> {
     range: Range<usize>,
 }
 
-pub(crate) fn apply(
+pub fn apply(
     context: &Context<'_>,
     comments: &[Comment<'_>],
     diagnostics: &mut Vec<Diagnostic>,

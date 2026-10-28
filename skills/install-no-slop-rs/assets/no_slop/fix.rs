@@ -4,8 +4,9 @@ use std::{
     collections::BTreeSet,
     ffi::OsString,
     fs::{self, OpenOptions},
-    io::Write as _,
+    io::{ErrorKind, Write as _},
     path::{Path, PathBuf},
+    process,
     sync::atomic::{AtomicU64, Ordering},
 };
 
@@ -20,7 +21,7 @@ use super::{
     source,
 };
 
-pub(crate) fn newline(source: &str, at: usize) -> &'static str {
+pub fn newline(source: &str, at: usize) -> &'static str {
     let line_end = source[..at].rfind('\n').or_else(|| source.find('\n'));
     if line_end.is_some_and(|p| p > 0 && source.as_bytes()[p - 1] == b'\r') {
         "\r\n"
@@ -30,12 +31,7 @@ pub(crate) fn newline(source: &str, at: usize) -> &'static str {
 }
 
 /// Original source coordinates are discarded after each batch and recalculated.
-pub(crate) fn plan(
-    path: &Path,
-    original: &str,
-    test_file: bool,
-    config: &Config,
-) -> Result<String> {
+pub fn plan(path: &Path, original: &str, test_file: bool, config: &Config) -> Result<String> {
     let mut current = original.to_owned();
     let mut seen = BTreeSet::new();
     for pass in 0..=16 {
@@ -70,7 +66,7 @@ pub(crate) fn plan(
 }
 
 /// Prefer replacements over insertions at a shared boundary; retry deferred edits.
-pub(crate) fn apply_edits(source: &str, mut edits: Vec<TextEdit>) -> Result<String> {
+pub fn apply_edits(source: &str, mut edits: Vec<TextEdit>) -> Result<String> {
     for edit in &edits {
         ensure!(
             edit.start <= edit.end
@@ -92,9 +88,9 @@ pub(crate) fn apply_edits(source: &str, mut edits: Vec<TextEdit>) -> Result<Stri
     let mut selected: Vec<TextEdit> = Vec::new();
     for edit in edits {
         if selected.last().is_some_and(|last| {
-            edit.start < last.end
+            edit.end < last.end
                 || (edit.start == last.start)
-                || (edit.start == last.end && edit.start == edit.end)
+                || (last.start == last.end && edit.start == edit.end)
         }) {
             continue;
         }
@@ -108,7 +104,7 @@ pub(crate) fn apply_edits(source: &str, mut edits: Vec<TextEdit>) -> Result<Stri
 }
 
 /// Retain doc comments and every token other than ordinary comments/whitespace.
-pub(crate) fn tokens(source: &str) -> Vec<String> {
+pub fn tokens(source: &str) -> Vec<String> {
     let prepared = source::prepare(source);
     let mut offset = 0;
     ra_ap_rustc_lexer::tokenize(&prepared, FrontmatterAllowed::No)
@@ -127,7 +123,7 @@ pub(crate) fn tokens(source: &str) -> Vec<String> {
         .collect()
 }
 
-pub(crate) fn validate(original: &str, candidate: &str) -> Result<()> {
+pub fn validate(original: &str, candidate: &str) -> Result<()> {
     let prefix = source::prefix_len(original);
     ensure!(
         source::prefix_len(candidate) == prefix && candidate.starts_with(&original[..prefix]),
@@ -156,7 +152,7 @@ impl Drop for Temporary {
 }
 
 /// Recheck the snapshot before replacement; never truncate the original file.
-pub(crate) fn commit(path: &Path, original: &str, candidate: &str) -> Result<()> {
+pub fn commit(path: &Path, original: &str, candidate: &str) -> Result<()> {
     static NEXT: AtomicU64 = AtomicU64::new(0);
     let unchanged = || -> Result<()> {
         ensure!(
@@ -178,7 +174,7 @@ pub(crate) fn commit(path: &Path, original: &str, candidate: &str) -> Result<()>
         name.push(path.file_name().context("source file has no name")?);
         name.push(format!(
             ".{}.{}",
-            std::process::id(),
+            process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
         let temporary = parent.join(name);
@@ -188,7 +184,7 @@ pub(crate) fn commit(path: &Path, original: &str, candidate: &str) -> Result<()>
             .open(&temporary)
         {
             Ok(file) => file,
-            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) if error.kind() == ErrorKind::AlreadyExists => continue,
             Err(error) => return Err(error.into()),
         };
         let guard = Temporary(temporary);

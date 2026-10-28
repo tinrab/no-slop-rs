@@ -16,7 +16,7 @@ use super::{
     source::{self, Comment},
 };
 
-pub(crate) struct Context<'a> {
+pub struct Context<'a> {
     pub path: &'a Path,
     pub source: &'a str,
     pub comments: Vec<Comment<'a>>,
@@ -110,7 +110,7 @@ fn requires_test(meta: &Meta) -> bool {
     }
 }
 
-pub(crate) fn test_attributes(attrs: &[Attribute]) -> bool {
+pub fn test_attributes(attrs: &[Attribute]) -> bool {
     attrs.iter().any(|attr| {
         if attr.path().is_ident("cfg") {
             attr.parse_args::<Meta>()

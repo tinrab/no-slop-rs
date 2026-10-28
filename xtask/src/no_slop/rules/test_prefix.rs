@@ -1,5 +1,5 @@
 //! Require `test_` on functions with a test attribute, including qualified async
-//! test attributes and tests inside cfg_attr. Merely being in a test-only module
+//! test attributes and tests inside `cfg_attr`. Merely being in a test-only module
 //! does not make a helper a test. Attribute aliases and generated tests inside
 //! opaque macro bodies are not resolved or expanded.
 
@@ -12,7 +12,7 @@ use syn::{
 
 use super::super::{context::Context, diagnostic::Diagnostic};
 
-pub(crate) fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
+pub fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
     struct Check<'a> {
         context: &'a Context<'a>,
         findings: Vec<Diagnostic>,

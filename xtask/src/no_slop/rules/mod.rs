@@ -2,7 +2,6 @@
 
 mod comments;
 mod duplicate_context;
-mod error_discard;
 mod error_messages;
 mod error_sources;
 mod error_support;
@@ -21,14 +20,14 @@ use syn::{File, Path};
 
 use super::{context::Context, diagnostic::Diagnostic};
 
-pub(crate) struct Rule {
+pub struct Rule {
     pub id: &'static str,
     pub description: &'static str,
     pub fixable: bool,
     pub check: fn(&File, &Context<'_>) -> Vec<Diagnostic>,
 }
 
-pub(crate) const RULES: &[Rule] = &[
+pub const RULES: &[Rule] = &[
     Rule {
         id: "no-vague-error-messages",
         fixable: false,
@@ -90,12 +89,6 @@ pub(crate) const RULES: &[Rule] = &[
         check: string_errors::check,
     },
     Rule {
-        id: "no-silent-error-discard",
-        fixable: false,
-        description: "Explain intentional loss of errors through .ok() or Result::ok filters.",
-        check: error_discard::check,
-    },
-    Rule {
         id: "no-blanket-lint-suppression",
         fixable: false,
         description: "Avoid suppressing warnings or clippy::all as a group.",
@@ -133,11 +126,11 @@ pub(crate) const RULES: &[Rule] = &[
     },
 ];
 
-pub(crate) fn is_known(id: &str) -> bool {
+pub fn is_known(id: &str) -> bool {
     RULES.iter().any(|rule| rule.id == id)
 }
 
-pub(crate) fn path_name(path: &Path) -> String {
+pub fn path_name(path: &Path) -> String {
     path.segments
         .iter()
         .map(|segment| segment.ident.to_string())

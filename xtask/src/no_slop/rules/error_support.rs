@@ -29,7 +29,7 @@ pub(super) fn unwrapped(mut expr: &Expr) -> &Expr {
 
 /// Parse just the message expression, leaving formatting arguments opaque.
 fn argument(tokens: TokenStream, index: usize) -> Option<Expr> {
-    // no-slop-allow: no-silent-error-discard -- unsupported macro arguments are outside this syntax rule
+    // Unsupported macro arguments are outside this syntax rule.
     (|input: ParseStream<'_>| {
         for _ in 0..index {
             input.parse::<Expr>()?;
@@ -119,6 +119,34 @@ pub(super) fn context_message(call: &ExprMethodCall) -> Option<Message> {
     }
 }
 
+fn call_message(call: &ExprCall) -> Option<Message> {
+    let Expr::Path(path) = unwrapped(&call.func) else {
+        return None;
+    };
+    if path.qself.is_some() {
+        return None;
+    }
+    let name = path_name(&path.path);
+    let expr = match name.as_str() {
+        "Err"
+        | "Result::Err"
+        | "std::result::Result::Err"
+        | "core::result::Result::Err"
+        | "Error::other"
+        | "io::Error::other"
+        | "std::io::Error::other"
+            if call.args.len() == 1 =>
+        {
+            call.args.first()
+        }
+        "Error::new" | "io::Error::new" | "std::io::Error::new" if call.args.len() == 2 => {
+            call.args.get(1)
+        }
+        _ => None,
+    }?;
+    message(expr, false)
+}
+
 pub(super) fn messages(file: &File) -> Vec<Message> {
     #[derive(Default)]
     struct Collect(Vec<Message>);
@@ -129,18 +157,22 @@ pub(super) fn messages(file: &File) -> Vec<Message> {
                 .iter()
                 .filter(|attr| attr.path().is_ident("error"))
             {
-                if let syn::Meta::List(list) = &attr.meta {
-                    if let Some(expr) = argument(list.tokens.clone(), 0) {
-                        if let Expr::Lit(literal) = unwrapped(&expr) {
-                            if let Lit::Str(literal) = &literal.lit {
-                                self.0.push(Message {
-                                    literal: literal.clone(),
-                                    formatted: true,
-                                });
-                            }
-                        }
-                    }
-                }
+                let syn::Meta::List(list) = &attr.meta else {
+                    continue;
+                };
+                let Some(expr) = argument(list.tokens.clone(), 0) else {
+                    continue;
+                };
+                let Expr::Lit(literal) = unwrapped(&expr) else {
+                    continue;
+                };
+                let Lit::Str(literal) = &literal.lit else {
+                    continue;
+                };
+                self.0.push(Message {
+                    literal: literal.clone(),
+                    formatted: true,
+                });
             }
         }
     }
@@ -157,11 +189,13 @@ pub(super) fn messages(file: &File) -> Vec<Message> {
         }
 
         fn visit_macro(&mut self, mac: &'ast Macro) {
-            if let Some(index) = error_macro(mac) {
-                if let Some(expr) = argument(mac.tokens.clone(), index) {
-                    self.0.extend(message(&expr, true));
-                }
-            }
+            let Some(index) = error_macro(mac) else {
+                return;
+            };
+            let Some(expr) = argument(mac.tokens.clone(), index) else {
+                return;
+            };
+            self.0.extend(message(&expr, true));
         }
 
         fn visit_expr_method_call(&mut self, call: &'ast ExprMethodCall) {
@@ -177,35 +211,7 @@ pub(super) fn messages(file: &File) -> Vec<Message> {
         }
 
         fn visit_expr_call(&mut self, call: &'ast ExprCall) {
-            if let Expr::Path(path) = unwrapped(&call.func) {
-                if path.qself.is_none() {
-                    let name = path_name(&path.path);
-                    let expr = match name.as_str() {
-                        "Err"
-                        | "Result::Err"
-                        | "std::result::Result::Err"
-                        | "core::result::Result::Err"
-                            if call.args.len() == 1 =>
-                        {
-                            call.args.first()
-                        }
-                        "Error::other" | "io::Error::other" | "std::io::Error::other"
-                            if call.args.len() == 1 =>
-                        {
-                            call.args.first()
-                        }
-                        "Error::new" | "io::Error::new" | "std::io::Error::new"
-                            if call.args.len() == 2 =>
-                        {
-                            call.args.get(1)
-                        }
-                        _ => None,
-                    };
-                    if let Some(expr) = expr {
-                        self.0.extend(message(expr, false));
-                    }
-                }
-            }
+            self.0.extend(call_message(call));
             visit::visit_expr_call(self, call);
         }
     }

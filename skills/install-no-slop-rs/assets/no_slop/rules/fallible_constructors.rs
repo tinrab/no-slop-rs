@@ -29,7 +29,7 @@ fn fallible_new(signature: &Signature) -> bool {
             matches!(segment.ident.to_string().as_str(), "Result" | "Option")))
 }
 
-pub(crate) fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
+pub fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
     struct Check<'a> {
         context: &'a Context<'a>,
         findings: Vec<Diagnostic>,

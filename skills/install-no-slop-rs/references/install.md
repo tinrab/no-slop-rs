@@ -1,52 +1,52 @@
 # Install the runtime and wire the command
 
-Confirm that the application belongs to an existing Cargo workspace before copying files or changing Cargo configuration.
-For a standalone application outside a workspace, explain that the skill cannot create or update an xtask and leave the project unchanged.
+Use this procedure after confirming the application belongs to an existing Cargo workspace as described in [SKILL.md](../SKILL.md).
 
-## Copy into a new destination
+## Copy the runtime
 
 Use the project's established xtask location.
-Before changing the project, confirm that the bundle contains `assets/no_slop/mod.rs`, `assets/no_slop/LICENSE`, and `assets/dependencies.toml`.
-If the destination already exists as a file, directory, or symlink, follow the [update procedure](update.md) instead of copying over it.
+Confirm that the bundle contains `assets/no_slop/mod.rs` and `assets/dependencies.toml`, resolving these paths relative to the skill directory.
+If the destination already exists, inspect the dispatcher's imports and use the [update procedure](update.md) rather than overwriting it.
 
-Copy the contents of `assets/no_slop/` to `<xtask-directory>/src/no_slop/`, preserving the directory structure and MIT license.
-Choose any available copying method, such as file tools, shell commands, or Python.
-Python is optional, and the skill requires no particular copying tool or environment manager.
-Compare the copied runtime files with the bundle before applying project formatting or local edits.
-
-Copy only the runtime files, not the whole skill, this repository's xtask crate, or authoring tests.
-Merge manifests, command wiring, and aliases as described below.
+Copy `assets/no_slop/` into `<xtask-directory>/src/no_slop/`, preserving its directory structure.
+Use any available copying method, including file tools, shell commands, or Python; no particular copying tool is required.
+Compare the copied runtime with the bundle before applying project formatting or local edits.
+Do not copy LICENSE files or authoring resources.
 
 ## Fit the Cargo layout
 
-| Project layout                                              | Integration                                                          |
-| ----------------------------------------------------------- | -------------------------------------------------------------------- |
-| Workspace with a member xtask                               | Keep its package name and membership                                 |
-| Workspace without an xtask                                  | Add a non-published xtask binary member and preserve default-members |
-| Application package that is also an existing workspace root | Keep the package layout and add xtask to its workspace members       |
-| Independent xtask for an existing application workspace     | Keep its workspace boundary and manifest-path alias                  |
+| Existing layout                                   | Integration                                         |
+| ------------------------------------------------- | --------------------------------------------------- |
+| Workspace with a member xtask                     | Keep its package name and membership                |
+| Workspace without an xtask                        | Add a non-published binary xtask member             |
+| Application package that is also a workspace root | Keep the package layout and add xtask as a member   |
+| Independent xtask for a workspace application     | Keep its workspace boundary and manifest-path alias |
 
-Use the project's edition or another edition supported by its toolchain.
-Merge `assets/dependencies.toml` into the xtask manifest, retaining compatible dependencies and existing features.
-Add dependency declarations only to the xtask's `Cargo.toml`, usually `xtask/Cargo.toml`.
-If a compatible dependency already exists in the containing workspace's `[workspace.dependencies]`, reference it with `.workspace = true`.
-Otherwise, declare its version and features directly in xtask.
-Do not add scanner dependencies to the root manifest or change shared dependency versions and features to satisfy the scanner.
-For an independent xtask workspace, inherit only dependencies already declared in its own workspace, not the application's workspace.
+Keep explicit `default-members` entries unchanged.
+For a virtual workspace without `default-members`, record its existing default members before adding xtask and set `default-members` to those package paths so ordinary Cargo commands do not start selecting xtask.
+A workspace root that is also an application package already defaults to that root package, so adding xtask does not require changing its defaults.
 
-For example, if `walkdir` is already shared but `globset` is not, use:
+Use an edition supported by the project's toolchain and format the runtime with that edition and the project's rustfmt settings.
+Merge the requirements in `assets/dependencies.toml` into the xtask manifest instead of copying this repository's manifest.
+Preserve existing dependencies and features.
+Inherit a dependency only when a compatible entry already exists in the xtask's containing `[workspace.dependencies]` table.
+Otherwise, declare its version and required features directly in xtask.
+Do not add scanner dependencies to the application root or change shared versions and features.
+
+For example, when `walkdir` is already shared and `syn` is absent, the xtask entries can be:
 
 ```toml
 [dependencies]
 walkdir.workspace = true
-globset = "^0.4.20"
+syn = { version = "^3.0.9", features = ["full", "visit"] }
 ```
 
-Keep scanner-specific features on xtask entries, such as `syn = { workspace = true, features = ["full", "visit"] }`.
-Add required features such as syn's `visit` without removing features the project already uses.
-The generated requirements contain normal runtime dependencies only.
-Resolve the target's lockfile through its usual Cargo workflow.
-Check older toolchains with a build instead of silently upgrading them.
+Use the actual bundled requirements rather than treating example versions as a separate source of truth.
+Keep scanner-specific features on xtask entries, including when inheriting a dependency.
+Account for required features and default-feature settings when merging, and verify that xtask builds without relying on application crates to enable required features through unification.
+Resolve the relevant lockfile through the project's normal Cargo workflow before running the scanner, which discovers workspaces using locked Cargo metadata.
+An independent xtask can have a separate lockfile from the application workspace.
+If existing dependencies or the toolchain are incompatible, report the concrete blocker rather than silently upgrading them.
 
 ## Preserve command behavior
 
@@ -55,31 +55,30 @@ For a new binary dispatcher, use:
 ```rust
 mod no_slop;
 
-use std::env;
-use std::process::ExitCode;
+use std::{env, process::ExitCode};
 
 fn main() -> ExitCode {
-	let mut args = env::args_os().skip(1);
-	match args.next().as_deref().and_then(|arg| arg.to_str()) {
-		Some("no-slop") => no_slop::run(&args.collect::<Vec<_>>()),
-		_ => ExitCode::from(2),
-	}
+    let mut args = env::args_os().skip(1);
+    match args.next().as_deref().and_then(|arg| arg.to_str()) {
+        Some("no-slop") => no_slop::run(&args.collect::<Vec<_>>()),
+        _ => ExitCode::from(2),
+    }
 }
 ```
 
-For an existing dispatcher, add the command while preserving other commands and their behavior.
-The scanner's `run(&[std::ffi::OsString]) -> std::process::ExitCode` prints diagnostics and returns the scan status.
-If the dispatcher returns `Result<()>`, carry that status through the top-level entry point.
-Calling `run` and returning `Ok(())` would hide lint failures.
-A library-based xtask can expose `pub mod no_slop`.
+For an existing dispatcher, add the command without changing other commands or their arguments and exit behavior.
+The scanner exposes `run(&[std::ffi::OsString]) -> std::process::ExitCode` and prints its own diagnostics.
+Pass all arguments after `no-slop` through as `OsString` values so non-UTF-8 paths remain usable.
+Propagate its exit status through the top-level entry point; invoking it and returning `Ok(())` would hide failures in a `Result<()>` dispatcher.
+A library-based xtask can expose `pub mod no_slop` and call it from the binary.
 
 Keep an existing suitable Cargo alias.
 Otherwise, add `xtask = "run --package <xtask-package> --"` under `[alias]` in `.cargo/config.toml`.
 An independent xtask usually uses `run --manifest-path <xtask-directory>/Cargo.toml --`.
 
-The alias selects the executable, while the scanner discovers the application workspace from its working directory.
-Use the scanner's `--manifest-path <application-manifest>` when an explicit workspace is needed.
-If the dispatcher supplies a default application manifest, preserve explicit overrides.
+The Cargo alias selects the executable; the scanner discovers the application workspace from its working directory.
+The scanner's `--manifest-path <application-manifest>` selects the application workspace, while Cargo's `--manifest-path` selects the executable crate.
+Preserve explicit application-manifest overrides if the dispatcher injects a default.
 
 ## Verify the installation
 
@@ -97,26 +96,21 @@ cargo check --manifest-path <xtask-directory>/Cargo.toml --all-targets
 cargo test --manifest-path <xtask-directory>/Cargo.toml
 ```
 
-Use `--locked` after resolving the lockfile when consistent with the project's workflow.
-Format new wiring and copied runtime with the project's edition and rustfmt settings.
-Import ordering can differ between editions, so format the copied code without changing the target's edition.
-Verify normal and test builds without this repository's tests or authoring files.
-
-Exercise an existing command, then run:
+Use `--locked` after resolving lockfiles when consistent with the project's workflow.
+Check formatting for the new wiring and copied runtime without reformatting unrelated application files.
+Exercise an existing command when available, then run these read-only checks:
 
 ```sh
 cargo xtask no-slop --list-rules
 cargo xtask no-slop --format json
 ```
 
-Inspect paths and failures to confirm the application workspace was scanned.
-Verify application coverage from the workspace root and a member directory.
-A relative manifest-path alias can fail from a member directory before xtask starts.
-Preserve that alias unless changing it is authorized, and verify coverage with an explicit invocation:
+Inspect the report's paths and failures to verify application coverage and status propagation.
+Check invocation from the workspace root and a member directory.
+If an existing relative manifest-path alias fails from a member directory, report the alias limitation and verify scanner behavior with absolute manifest paths:
 
 ```sh
-cargo run --manifest-path <actual-xtask-manifest> -- no-slop --manifest-path <application-manifest> --format json
+cargo run --manifest-path <absolute-xtask-manifest> -- no-slop --manifest-path <absolute-application-manifest> --format json
 ```
 
-Report any existing alias limitation separately from scanner behavior.
-See [configuration and results](configuration.md) for policy and exit codes.
+See [configuration and results](configuration.md) for exit codes and expected findings.
