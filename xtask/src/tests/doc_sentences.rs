@@ -106,10 +106,6 @@ fn test_leaves_layout_sensitive_markdown_and_other_comments_alone() {
 /// [link]: https://example.com. Two.
 ///
 ///     indented code. Two.
-///
-/// Hard break.
-/// Next line\
-/// continues.
 //// Not docs. Two.
 // Ordinary. Two.
 /* Block. Two. */
@@ -122,4 +118,65 @@ fn f() {}
 fn test_trailing_code_comment_does_not_join_paragraphs() {
     let source = "/// First\nfn f() {}\n/// second.\nfn g() {}";
     assert!(findings("require-sentence-per-line", source).is_empty());
+}
+
+#[test]
+fn test_hard_breaks_end_a_paragraph() {
+    for source in [
+        "/// Hard break.\x20\x20\n/// Next line\\\n/// continues.\nfn f() {}",
+        "/// First part\x20\x20\n/// Second part.\nfn f() {}",
+    ] {
+        assert!(
+            findings("require-sentence-per-line", source).is_empty(),
+            "{source:?}"
+        );
+    }
+}
+
+#[test]
+fn test_splits_before_mixed_case_names() {
+    assert_eq!(
+        fixed("/// Reads the total. nvCOMP may sync. iOS too.\nfn f() {}"),
+        "/// Reads the total.\n/// nvCOMP may sync.\n/// iOS too.\nfn f() {}"
+    );
+    assert!(
+        findings(
+            "require-sentence-per-line",
+            "/// Unlike e.g. nvCOMP or the lowercase. name.\nfn f() {}"
+        )
+        .is_empty()
+    );
+}
+
+#[test]
+fn test_aligns_stray_lines_to_the_documented_item() {
+    assert_eq!(
+        fixed("mod m {\n    /// First.\n/// Second.\n    ///\n  /// # Errors\n    fn f() {}\n}"),
+        "mod m {\n    /// First.\n    /// Second.\n    ///\n    /// # Errors\n    fn f() {}\n}"
+    );
+}
+
+#[test]
+fn test_drops_trailing_empty_doc_lines_inside_macros() {
+    assert_eq!(
+        fixed(
+            "macro_rules! m {\n    () => {\n        /// Runs. Then waits.\n///\n        ///\n        fn f() {}\n    };\n}"
+        ),
+        "macro_rules! m {\n    () => {\n        /// Runs.\n        /// Then waits.\n        fn f() {}\n    };\n}"
+    );
+}
+
+#[test]
+fn test_keeps_aligned_inner_docs_and_lone_empty_lines() {
+    for source in [
+        "//! Crate docs.\n//!\n//! More.\n\nfn f() {}",
+        "mod m {\n    //! Inner.\n}",
+        "///\nfn f() {}",
+        "/// Docs.\n\nfn f() {}",
+    ] {
+        assert!(
+            findings("require-sentence-per-line", source).is_empty(),
+            "{source}"
+        );
+    }
 }

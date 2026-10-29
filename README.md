@@ -241,6 +241,7 @@ Crate roots such as `lib.rs`, `main.rs`, tests, and examples keep their children
 ### `require-sentence-per-line`
 
 Write each sentence of a `///` or `//!` doc comment on its own line, so prose diffs stay small.
+The fix also aligns stray doc lines with the documented item and drops trailing empty doc lines, which rustfmt leaves alone inside macro bodies.
 
 ```diff
 -/// Parses the header. Fails when the magic bytes

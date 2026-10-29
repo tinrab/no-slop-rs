@@ -1,7 +1,8 @@
 //! Put each sentence of a `///` or `//!` comment on its own line.
-//! Prose paragraphs and list items are rejoined and split after sentence-ending punctuation that is followed by a capital letter, backtick, or link.
+//! Prose paragraphs and list items are rejoined and split after sentence-ending punctuation that is followed by a capitalized or mixed-case word, backtick, or link.
 //! Code blocks, tables, headings, block quotes, HTML, and link definitions are left alone.
 //! Inline code, brackets, parentheses, and common abbreviations never end a sentence.
+//! Lines are aligned to the documented item and trailing empty lines are dropped, since rustfmt skips doc comments inside macro bodies.
 
 use syn::File;
 
@@ -38,7 +39,6 @@ pub fn check(_file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
             let (previous, current) = (&lines[index - 1], &lines[index]);
             matches!(&context.source[previous.end..current.start], "\n" | "\r\n")
                 && previous.marker == current.marker
-                && previous.indent == current.indent
         };
         if !continues {
             check_block(context, &lines[block_start..index], &mut findings);
@@ -82,21 +82,23 @@ fn doc_lines<'a>(context: &Context<'a>) -> Vec<Line<'a>> {
 }
 
 fn check_block(context: &Context<'_>, lines: &[Line<'_>], findings: &mut Vec<Diagnostic>) {
+    let indent = block_indent(context, lines);
+    check_layout(context, lines, indent, findings);
     let mut fenced = false;
     let mut unit: Option<Unit> = None;
     for (index, line) in lines.iter().enumerate() {
         let trimmed = line.body.trim();
         if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
-            flush(context, lines, unit.take(), findings);
+            flush(context, lines, indent, unit.take(), findings);
             fenced = !fenced;
             continue;
         }
         if fenced || trimmed.is_empty() || literal(line.body, unit.is_some()) {
-            flush(context, lines, unit.take(), findings);
+            flush(context, lines, indent, unit.take(), findings);
             continue;
         }
         if let Some(content) = list_item_content(line.body) {
-            flush(context, lines, unit.take(), findings);
+            flush(context, lines, indent, unit.take(), findings);
             unit = Some(Unit {
                 first: index,
                 last: index,
@@ -123,10 +125,73 @@ fn check_block(context: &Context<'_>, lines: &[Line<'_>], findings: &mut Vec<Dia
         }
         // A trailing backslash or two spaces is a hard line break.
         if line.body.ends_with("  ") || line.body.ends_with('\\') {
-            flush(context, lines, unit.take(), findings);
+            flush(context, lines, indent, unit.take(), findings);
         }
     }
-    flush(context, lines, unit, findings);
+    flush(context, lines, indent, unit, findings);
+}
+
+/// An outer doc comment takes the indent of the item it documents; an inner one keeps its first line's indent.
+fn block_indent<'a>(context: &Context<'a>, lines: &[Line<'a>]) -> &'a str {
+    let first = &lines[0];
+    let last = &lines[lines.len() - 1];
+    if first.marker != "///" {
+        return first.indent;
+    }
+    let rest = &context.source[last.end..];
+    let next = rest
+        .strip_prefix("\r\n")
+        .or_else(|| rest.strip_prefix('\n'))
+        .unwrap_or_default();
+    let line = &next[..next.find('\n').unwrap_or(next.len())];
+    let indent = &next[..line.len() - line.trim_start().len()];
+    if line.trim().is_empty() {
+        first.indent
+    } else {
+        indent
+    }
+}
+
+/// Aligns every line of a block and drops trailing empty lines, which macro bodies keep because rustfmt skips them.
+fn check_layout(
+    context: &Context<'_>,
+    lines: &[Line<'_>],
+    indent: &str,
+    findings: &mut Vec<Diagnostic>,
+) {
+    let kept = lines
+        .iter()
+        .rposition(|line| !line.body.trim().is_empty())
+        .map_or(lines.len(), |last| last + 1);
+    let misaligned = lines[..kept].iter().find(|line| line.indent != indent);
+    let (line, message) = match misaligned {
+        Some(line) => (line, "doc comment line is not aligned with its comment"),
+        None if kept < lines.len() => (&lines[kept], "doc comment ends with an empty line"),
+        None => return,
+    };
+    let first = &lines[0];
+    let last = &lines[lines.len() - 1];
+    let newline = fix::newline(context.source, first.start);
+    let replacement = lines[..kept]
+        .iter()
+        .map(|line| {
+            format!(
+                "{indent}{}",
+                &context.source[line.start + line.indent.len()..line.end]
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(newline);
+    findings.push(
+        context
+            .report_range(
+                "require-sentence-per-line",
+                line.start + line.indent.len()..line.end,
+                message,
+                "Indent each doc comment line like the item it documents, and drop trailing empty lines.",
+            )
+            .with_fix(first.start, last.end, replacement),
+    );
 }
 
 /// Lines whose layout carries meaning, or indented code outside a paragraph.
@@ -156,6 +221,7 @@ fn list_item_content(body: &str) -> Option<usize> {
 fn flush(
     context: &Context<'_>,
     lines: &[Line<'_>],
+    indent: &str,
     unit: Option<Unit>,
     findings: &mut Vec<Diagnostic>,
 ) {
@@ -192,7 +258,7 @@ fn flush(
     let newline = fix::newline(context.source, first.start);
     let replacement = bodies
         .iter()
-        .map(|body| format!("{}{} {body}", first.indent, first.marker))
+        .map(|body| format!("{indent}{} {body}", first.marker))
         .collect::<Vec<_>>()
         .join(newline);
     findings.push(
@@ -232,10 +298,13 @@ fn sentences_of(text: &str) -> Vec<usize> {
             b'.' | b'?' | b'!' if !code && depth == 0 && bytes.get(index + 1) == Some(&b' ') => {
                 let next =
                     index + 1 + text[index + 1..].len() - text[index + 1..].trim_start().len();
-                let starts_sentence = text[next..]
-                    .chars()
+                // Mixed-case names such as nvCOMP or iOS also start a sentence.
+                let next_word = text[next..]
+                    .split(|c: char| !c.is_alphanumeric())
                     .next()
-                    .is_some_and(|c| c.is_uppercase() || c == '`' || c == '[');
+                    .unwrap_or_default();
+                let starts_sentence = next_word.chars().any(char::is_uppercase)
+                    || text[next..].starts_with(['`', '[']);
                 let word_start = text[..index]
                     .rfind(|c: char| !(c.is_alphanumeric() || c == '_' || c == '.'))
                     .map_or(0, |p| p + 1);
