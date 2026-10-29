@@ -73,6 +73,10 @@ fn demo() -> (TempDir, String) {
     );
     let source = fs::read_to_string(root().join("demo-app/src/lib.rs")).unwrap();
     write(directory.path(), "src/lib.rs", &source);
+    for module in ["src/layout.rs", "src/layout/child.rs"] {
+        let source = fs::read_to_string(root().join("demo-app").join(module)).unwrap();
+        write(directory.path(), module, &source);
+    }
     lock(directory.path());
     (directory, source)
 }
@@ -82,7 +86,7 @@ fn test_demo_preview_apply_remaining_findings_compilation_and_idempotence() {
     let (directory, original) = demo();
     let path = directory.path().join("src/lib.rs");
     let initial = json(&scan(directory.path(), &[]), 1);
-    assert_eq!(initial["diagnostics"].as_array().unwrap().len(), 16);
+    assert_eq!(initial["diagnostics"].as_array().unwrap().len(), 19);
     assert_eq!(
         initial["diagnostics"]
             .as_array()
@@ -90,12 +94,12 @@ fn test_demo_preview_apply_remaining_findings_compilation_and_idempotence() {
             .iter()
             .filter(|d| d.get("fix").is_some())
             .count(),
-        4
+        5
     );
     assert_eq!(fs::read_to_string(&path).unwrap(), original);
 
     let dry = json(&scan(directory.path(), &["--fix-dry-run"]), 1);
-    assert_eq!(dry["diagnostics"].as_array().unwrap().len(), 16);
+    assert_eq!(dry["diagnostics"].as_array().unwrap().len(), 19);
     assert_eq!(dry["summary"]["files_changed"], 0);
     assert_eq!(dry["summary"]["files_would_change"], 1);
     assert_eq!(dry["changes"][0]["applied"], false);
@@ -109,7 +113,7 @@ fn test_demo_preview_apply_remaining_findings_compilation_and_idempotence() {
     );
 
     let applied = json(&scan(directory.path(), &["--fix"]), 1);
-    assert_eq!(applied["diagnostics"].as_array().unwrap().len(), 12);
+    assert_eq!(applied["diagnostics"].as_array().unwrap().len(), 14);
     assert!(
         applied["diagnostics"]
             .as_array()
@@ -213,7 +217,7 @@ fn test_fix_metadata_and_argument_conflicts() {
             .iter()
             .filter(|r| r["fixable"] == true)
             .count(),
-        4
+        5
     );
     for args in [
         vec!["--fix", "--fix-dry-run"],

@@ -1,8 +1,8 @@
-//! Require a blank physical line between sibling item declarations. Imports,
-//! external modules, and single-line constants may form compact groups. A leading
-//! comment starts a new group; same-line trailing comments belong to the prior
-//! item. Fields, enum variants, ordinary statements, and macro bodies are outside
-//! this rule. Spacing inside an item's attributes and documentation is untouched.
+//! Require a blank physical line between sibling item declarations.
+//! Imports, external modules, and single-line constants may form compact groups.
+//! A leading comment starts a new group; same-line trailing comments belong to the prior item.
+//! Fields, enum variants, ordinary statements, and macro bodies are outside this rule.
+//! Spacing inside an item's attributes and documentation is untouched.
 
 use proc_macro2::Span;
 use syn::{

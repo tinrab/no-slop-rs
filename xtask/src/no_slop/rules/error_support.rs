@@ -11,7 +11,7 @@ use syn::{
 
 use super::path_name;
 
-pub(super) fn unwrapped(mut expr: &Expr) -> &Expr {
+pub fn unwrapped(mut expr: &Expr) -> &Expr {
     loop {
         expr = match expr {
             Expr::Paren(paren) => &paren.expr,
@@ -68,7 +68,7 @@ fn error_macro(mac: &Macro) -> Option<usize> {
 }
 
 #[derive(Clone)]
-pub(super) struct Message {
+pub struct Message {
     pub literal: LitStr,
     pub formatted: bool,
 }
@@ -108,7 +108,7 @@ fn lazy_message(expr: &Expr) -> Option<Message> {
     message(&closure.body, false)
 }
 
-pub(super) fn context_message(call: &ExprMethodCall) -> Option<Message> {
+pub fn context_message(call: &ExprMethodCall) -> Option<Message> {
     if call.args.len() != 1 {
         return None;
     }
@@ -147,7 +147,7 @@ fn call_message(call: &ExprCall) -> Option<Message> {
     message(expr, false)
 }
 
-pub(super) fn messages(file: &File) -> Vec<Message> {
+pub fn messages(file: &File) -> Vec<Message> {
     #[derive(Default)]
     struct Collect(Vec<Message>);
 

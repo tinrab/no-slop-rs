@@ -1,8 +1,8 @@
 //! Editable, syntax-based rules for common agent-generated Rust patterns.
 //!
-//! Integrate by dispatching `no-slop` to [`run`]. Only --fix writes application code.
-//! Rules inspect written syntax, including inactive cfg branches, without macro
-//! expansion, inferred types, or cross-file alias resolution.
+//! Integrate by dispatching `no-slop` to [`run`].
+//! Only --fix writes application code.
+//! Rules inspect written syntax, including inactive cfg branches, without macro expansion, inferred types, or cross-file alias resolution.
 
 pub(crate) mod cli;
 pub(crate) mod config;
@@ -73,7 +73,8 @@ pub(crate) fn scan(options: &Options) -> Result<Report> {
             .path
             .strip_prefix(&workspace.root)
             .unwrap_or(&file.path);
-        let context = Context::new(path, &file.source, &file.syntax, file.is_test);
+        let mut context = Context::new(path, &file.source, &file.syntax, file.is_test);
+        context.crate_root = file.is_crate_root;
         let mut local = Report::default();
         check_file(&context, &file.syntax, &workspace.config, &mut local);
         if options.fix_mode.enabled() && local.failures.is_empty() {
@@ -106,7 +107,8 @@ pub(crate) fn scan(options: &Options) -> Result<Report> {
                     if options.fix_mode.applies() {
                         report.summary.files_changed += 1;
                         local = Report::default();
-                        let context = Context::new(path, &candidate, &syntax, file.is_test);
+                        let mut context = Context::new(path, &candidate, &syntax, file.is_test);
+                        context.crate_root = file.is_crate_root;
                         check_file(&context, &syntax, &workspace.config, &mut local);
                     } else {
                         report.summary.files_would_change += 1;

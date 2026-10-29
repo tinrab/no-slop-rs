@@ -1,6 +1,6 @@
-//! Inspect explicit Result return contracts and type aliases, including nested
-//! Result types. Imports, user-defined Result/String types, and aliases are not
-//! resolved. Test-only contracts are exempt.
+//! Inspect explicit Result return contracts and type aliases, including nested Result types.
+//! Imports, user-defined Result/String types, and aliases are not resolved.
+//! Test-only contracts are exempt.
 
 use syn::{
     File, GenericArgument, ItemType, PathArguments, ReturnType, Signature, Type, TypePath,

@@ -307,7 +307,7 @@ fn test_out_of_line_test_scope_propagates_but_shared_production_files_stay_check
     );
     write(
         directory.path(),
-        "a/src/tests.rs",
+        "a/src/tests/mod.rs",
         "mod support;\n\nfn helper() -> Result<(), String> { loop {} }",
     );
     write(
@@ -351,6 +351,32 @@ fn test_out_of_line_test_scope_propagates_but_shared_production_files_stay_check
             "a/src/shared.rs",
             "a/tests/shared_support.rs"
         ]
+    );
+}
+
+#[test]
+fn test_module_layout_exempts_target_roots_but_not_their_sibling_modules() {
+    let directory = workspace();
+    write(directory.path(), "a/src/lib.rs", "mod parser;");
+    write(directory.path(), "a/src/parser.rs", "mod lexer;");
+    write(directory.path(), "a/src/parser/lexer.rs", "");
+    write(directory.path(), "a/src/main.rs", "mod cli;");
+    write(directory.path(), "a/src/cli/mod.rs", "mod args;");
+    write(directory.path(), "a/src/cli/args.rs", "");
+    write(directory.path(), "a/tests/integration.rs", "mod common;");
+    write(directory.path(), "a/tests/common/mod.rs", "");
+    let mut selected = options(directory.path());
+    selected.packages.push("a".into());
+    let report = scan(&selected).unwrap();
+    assert!(report.failures.is_empty(), "{:?}", report.failures);
+    let findings: Vec<_> = report
+        .diagnostics
+        .iter()
+        .map(|diagnostic| (diagnostic.rule, diagnostic.path.to_string_lossy()))
+        .collect();
+    assert_eq!(
+        findings,
+        [("require-mod-rs-layout", "a/src/parser.rs".into())]
     );
 }
 

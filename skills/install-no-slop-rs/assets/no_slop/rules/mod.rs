@@ -1,6 +1,8 @@
-//! Each rule owns its traversal. Add a function and register it here to add a rule.
+//! Each rule owns its traversal.
+//! Add a function and register it here to add a rule.
 
 mod comments;
+mod doc_sentences;
 mod duplicate_context;
 mod error_messages;
 mod error_sources;
@@ -8,6 +10,7 @@ mod error_support;
 mod fallible_constructors;
 mod grouped_imports;
 mod lint_suppressions;
+mod module_layout;
 mod readable_spacing;
 mod string_errors;
 mod stringified_errors;
@@ -15,6 +18,7 @@ mod test_names;
 mod test_prefix;
 mod vague_errors;
 mod vague_names;
+mod visibility;
 
 use syn::{File, Path};
 
@@ -123,6 +127,24 @@ pub const RULES: &[Rule] = &[
         fixable: false,
         description: "Preserve the original error instead of directly mapping it to its display string.",
         check: stringified_errors::check,
+    },
+    Rule {
+        id: "no-restricted-visibility",
+        fixable: false,
+        description: "Use private, pub(crate), or pub visibility instead of pub(super), pub(self), or pub(in path).",
+        check: visibility::check,
+    },
+    Rule {
+        id: "require-mod-rs-layout",
+        fixable: false,
+        description: "Put a module with child modules in name/mod.rs instead of a sibling name.rs file.",
+        check: module_layout::check,
+    },
+    Rule {
+        id: "require-sentence-per-line",
+        fixable: true,
+        description: "Write each sentence of a doc comment on its own line.",
+        check: doc_sentences::check,
     },
 ];
 

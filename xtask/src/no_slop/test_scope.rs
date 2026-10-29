@@ -1,6 +1,6 @@
 //! Propagate test-only scope through ordinary file-backed module declarations.
-//! A file also referenced from production remains production. Macro-generated
-//! modules and conditional path attributes are not resolved.
+//! A file also referenced from production remains production.
+//! Macro-generated modules and conditional path attributes are not resolved.
 
 use std::{
     collections::BTreeMap,

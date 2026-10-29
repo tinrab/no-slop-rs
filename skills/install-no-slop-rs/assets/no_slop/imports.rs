@@ -166,7 +166,7 @@ pub fn normalized(source: &str) -> anyhow::Result<Vec<Token>> {
     for run in runs(&file) {
         let range = range(&run);
         result.extend(
-            fix::tokens(&prepared[offset..range.start])
+            fix::doc_words(&prepared[offset..range.start])
                 .into_iter()
                 .map(Token::Written),
         );
@@ -179,7 +179,7 @@ pub fn normalized(source: &str) -> anyhow::Result<Vec<Token>> {
         offset = range.end;
     }
     result.extend(
-        fix::tokens(&prepared[offset..])
+        fix::doc_words(&prepared[offset..])
             .into_iter()
             .map(Token::Written),
     );

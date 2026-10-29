@@ -4,6 +4,9 @@ Editable Rust lints for common patterns coding agents leave behind.
 
 The rules live in your repository and run through `cargo xtask no-slop`.
 
+This is not a replacement for [Clippy](https://github.com/rust-lang/rust-clippy).
+Every Rust project should run Clippy; no-slop adds checks Clippy does not cover and avoids duplicating its lints.
+
 ## Install the skill
 
 From your target Cargo workspace, install the skill:
@@ -35,14 +38,14 @@ cargo xtask no-slop --format json
 The scanner reads source without building application crates or expanding macros.
 All rules default to errors.
 Preview mechanical fixes with `--fix-dry-run`, then apply them with `--fix`.
-Fixes cover import grouping, declaration spacing, decorative comments, and exact boilerplate comments.
+Fixes cover import grouping, declaration spacing, decorative comments, exact boilerplate comments, and doc comment sentence lines.
 Edit the copied rules or [configure levels, exclusions, and local exceptions](skills/install-no-slop-rs/references/configuration.md) to fit your project.
 Exit codes are 0 for success, 1 for error findings, and 2 for invalid input or incomplete coverage.
 
 ## Rules
 
 Each diff replaces a violation with an accepted alternative.
-These are suggested corrections; only the four rules listed above support automatic fixes.
+These are suggested corrections; only the five rules listed above support automatic fixes.
 Checks follow written syntax without resolving types, imported aliases, or macro expansions.
 See the [configuration reference](skills/install-no-slop-rs/references/configuration.md) for coverage limits and exceptions.
 
@@ -213,6 +216,37 @@ Preserve the original error instead of directly mapping it to its display string
 ```diff
 -parse_config(input).map_err(|error| error.to_string())
 +parse_config(input).map_err(ConfigError::Parse)
+```
+
+### `no-restricted-visibility`
+
+Use private, `pub(crate)`, or `pub` visibility instead of `pub(super)`, `pub(self)`, or `pub(in path)`, which tie an item to its module position.
+
+```diff
+-pub(super) fn parse_header(input: &str) -> Header {
++pub(crate) fn parse_header(input: &str) -> Header {
+```
+
+### `require-mod-rs-layout`
+
+Put a module with out-of-line child modules in `name/mod.rs` instead of a sibling `name.rs` file.
+Crate roots such as `lib.rs`, `main.rs`, tests, and examples keep their children beside them.
+
+```diff
+-src/parser.rs
++src/parser/mod.rs
+ src/parser/lexer.rs
+```
+
+### `require-sentence-per-line`
+
+Write each sentence of a `///` or `//!` doc comment on its own line, so prose diffs stay small.
+
+```diff
+-/// Parses the header. Fails when the magic bytes
+-/// are missing.
++/// Parses the header.
++/// Fails when the magic bytes are missing.
 ```
 
 ## Update an installed copy

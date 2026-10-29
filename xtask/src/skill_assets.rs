@@ -17,8 +17,7 @@ use walkdir::WalkDir;
 ///
 /// # Errors
 ///
-/// Returns an error for invalid arguments, unavailable workspace metadata or files,
-/// failed writes, or stale assets when checking.
+/// Returns an error for invalid arguments, unavailable workspace metadata or files, failed writes, or stale assets when checking.
 pub fn run(args: &[OsString]) -> Result<()> {
     ensure!(
         args.is_empty() || args == [OsString::from("--check")],

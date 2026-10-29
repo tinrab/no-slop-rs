@@ -123,6 +123,25 @@ pub fn tokens(source: &str) -> Vec<String> {
         .collect()
 }
 
+/// Like [`tokens`], but split doc line comments into words, so reflowing a doc paragraph keeps the same documentation.
+pub fn doc_words(source: &str) -> Vec<String> {
+    tokens(source)
+        .into_iter()
+        .flat_map(|token| {
+            let marker = ["///", "//!"]
+                .into_iter()
+                .find(|marker| token.starts_with(marker) && !token.starts_with("////"));
+            match marker {
+                Some(marker) => token[marker.len()..]
+                    .split_whitespace()
+                    .map(|word| format!("{marker}{word}"))
+                    .collect(),
+                None => vec![token],
+            }
+        })
+        .collect()
+}
+
 pub fn validate(original: &str, candidate: &str) -> Result<()> {
     let prefix = source::prefix_len(original);
     ensure!(
@@ -130,7 +149,7 @@ pub fn validate(original: &str, candidate: &str) -> Result<()> {
         "fix changes the BOM or shebang"
     );
     ensure!(
-        tokens(original) == tokens(candidate)
+        doc_words(original) == doc_words(candidate)
             || super::imports::normalized(original)? == super::imports::normalized(candidate)?,
         "fix changes executable tokens or documentation"
     );

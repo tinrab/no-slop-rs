@@ -20,6 +20,8 @@ pub struct Context<'a> {
     pub path: &'a Path,
     pub source: &'a str,
     pub comments: Vec<Comment<'a>>,
+    /// Whether the file is a target's root, whose child modules live beside it.
+    pub crate_root: bool,
     test_file: bool,
     test_ranges: Vec<Range<usize>>,
     pub targets: Vec<Range<usize>>,
@@ -38,6 +40,7 @@ impl<'a> Context<'a> {
             path,
             source,
             comments: source::comments(source),
+            crate_root: false,
             test_file: test_file || test_attributes(&file.attrs),
             test_ranges: index.test_ranges,
             targets: index.targets,

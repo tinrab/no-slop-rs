@@ -1,5 +1,4 @@
-//! Suppressing warnings or `clippy::all` requires
-//! a no-slop exception even when the Rust attribute already has a reason.
+//! Suppressing warnings or `clippy::all` requires a no-slop exception even when the Rust attribute already has a reason.
 //! Inspect `cfg_attr` contents without evaluating their condition.
 
 use syn::{

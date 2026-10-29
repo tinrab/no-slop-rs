@@ -12,6 +12,8 @@ use std::{
 
 use anyhow::Context as _;
 
+pub mod layout;
+
 /// Return the current executable's path.
 ///
 /// # Errors
@@ -108,6 +110,25 @@ pub fn stringified_failure(input: &str) -> Result<usize, Box<dyn StdError>> {
         .parse::<usize>()
         .map_err(|error| error.to_string())
         .map_err(Into::into)
+}
+
+// Triggers `no-restricted-visibility`: pub(super) ties the function to this module tree.
+pub mod restricted {
+    pub(super) const fn restricted_value() -> u8 {
+        4
+    }
+}
+
+#[must_use]
+pub const fn restricted_value() -> u8 {
+    restricted::restricted_value()
+}
+
+// Triggers `require-sentence-per-line`: the doc comment below holds two sentences.
+/// Return a fixed value. The value never changes.
+#[must_use]
+pub const fn two_sentences() -> u8 {
+    5
 }
 
 #[cfg(test)]

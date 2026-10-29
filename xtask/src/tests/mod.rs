@@ -1,6 +1,8 @@
-//! Author-only tests and helpers. This directory is not part of the skill bundle.
+//! Author-only tests and helpers.
+//! This directory is not part of the skill bundle.
 
 mod comments;
+mod doc_sentences;
 mod duplicate_context;
 mod error_messages;
 mod error_sources;
@@ -8,6 +10,7 @@ mod fallible_constructors;
 mod fixes;
 mod grouped_imports;
 mod lint_suppressions;
+mod module_layout;
 mod policies;
 mod readable_spacing;
 mod scanner;
@@ -17,6 +20,7 @@ mod test_names;
 mod test_prefix;
 mod vague_errors;
 mod vague_names;
+mod visibility;
 
 use std::path::Path;
 
