@@ -180,3 +180,15 @@ fn test_keeps_aligned_inner_docs_and_lone_empty_lines() {
         );
     }
 }
+
+#[test]
+fn test_splits_after_words_that_follow_multibyte_characters() {
+    assert_eq!(
+        fixed("/// Takes `p0`, `p1`, …it. Then stops.\nfn f() {}"),
+        "/// Takes `p0`, `p1`, …it.\n/// Then stops.\nfn f() {}"
+    );
+    assert_eq!(
+        fixed("/// Uses a résumé. Ünïcode follows. Then «é. Ok».\nfn f() {}"),
+        "/// Uses a résumé.\n/// Ünïcode follows.\n/// Then «é. Ok».\nfn f() {}"
+    );
+}

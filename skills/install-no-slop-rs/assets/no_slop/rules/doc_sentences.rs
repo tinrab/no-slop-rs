@@ -306,8 +306,10 @@ fn sentences_of(text: &str) -> Vec<usize> {
                 let starts_sentence = next_word.chars().any(char::is_uppercase)
                     || text[next..].starts_with(['`', '[']);
                 let word_start = text[..index]
-                    .rfind(|c: char| !(c.is_alphanumeric() || c == '_' || c == '.'))
-                    .map_or(0, |p| p + 1);
+                    .char_indices()
+                    .rev()
+                    .find(|&(_, c)| !(c.is_alphanumeric() || c == '_' || c == '.'))
+                    .map_or(0, |(p, c)| p + c.len_utf8());
                 let word = &text[word_start..index];
                 // A single letter or number before a period is an initial or list number.
                 let abbreviation = ABBREVIATIONS.contains(&word)
