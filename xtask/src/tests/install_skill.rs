@@ -128,7 +128,7 @@ fn fixture(directory: &Path, existing_workspace: bool) {
 }
 
 #[test]
-fn test_bundle_contains_only_runtime_sources_and_dependencies() {
+fn test_bundle_contains_only_runtime_sources_provenance_and_dependencies() {
     assert!(
         !root()
             .join("skills/install-no-slop-rs/assets/no_slop/LICENSE")
@@ -155,6 +155,8 @@ fn test_bundle_contains_only_runtime_sources_and_dependencies() {
     }
 
     let assets = root().join("skills/install-no-slop-rs/assets/no_slop");
+    let provenance = fs::read_to_string(assets.join("UPSTREAM.md")).unwrap();
+    assert!(provenance.contains("https://github.com/tinrab/no-slop-rs"));
     for entry in WalkDir::new(&assets) {
         let entry = entry.unwrap();
         if entry.file_type().is_file()
@@ -215,6 +217,7 @@ fn test_copied_runtime_runs_and_preserves_local_changes() {
         assert!(destination.join("rules/readable_spacing.rs").is_file());
         assert!(destination.join("rules/comments.rs").is_file());
         assert!(!destination.join("LICENSE").exists());
+        assert!(destination.join("UPSTREAM.md").is_file());
         // A runtime-only copy must build both normal and test targets without
         // any of this repository's test files or dev dependencies.
         success(cargo(

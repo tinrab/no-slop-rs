@@ -193,6 +193,7 @@ impl<'ast> Visit<'ast> for Index {
         if let Expr::Block(block) = expr {
             self.record_test(&block.attrs, block.span());
         }
+
         visit::visit_expr(self, expr);
     }
 }

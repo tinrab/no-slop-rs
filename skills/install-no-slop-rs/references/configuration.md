@@ -60,34 +60,50 @@ Use Clippy for behavior already covered by its lints rather than duplicating tho
 
 The shipped policies have these important boundaries:
 
-| Policy                                                        | Coverage limits                                                                                                                                                                          |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `require-test-prefix`, `no-vague-test-names`                  | Only test-attributed functions, including qualified async test attributes and nested `cfg_attr`; helpers in test modules are exempt                                                      |
-| `require-readable-spacing`                                    | Sibling declarations; imports, external modules, and single-line constants can form compact groups                                                                                       |
-| `require-grouped-imports`                                     | Consecutive use runs in files, inline modules, and blocks; attributes, comments attached to imports, local exceptions, and empty groups are boundaries                                   |
-| `no-string-errors`                                            | Explicit `Result` string-error contracts and type aliases; recognized test-only contracts are exempt                                                                                     |
-| `no-blanket-lint-suppression`                                 | `warnings` and `clippy::all` in `allow` or `expect`, including nested `cfg_attr`                                                                                                         |
-| `no-vague-type-names`                                         | Written type names using generic `Manager`, `Helper`, `Processor`, or `Data` naming patterns                                                                                             |
-| Comment rules                                                 | Ordinary line comments; rustdoc, block comments, strings, and opaque macro payloads are excluded                                                                                         |
-| `no-stringified-error-mapping`                                | Direct untyped synchronous `map_err` closures returning the bound error's `.to_string()`                                                                                                 |
-| `no-restricted-visibility`                                    | Written `pub(super)`, `pub(self)`, and `pub(in path)` restrictions, including fields and associated items; macro-generated visibility is excluded                                        |
-| `require-mod-rs-layout`                                       | Non-root `name.rs` files declaring out-of-line child modules; target roots, `mod.rs` files, inline modules, and `#[path]` children are exempt                                            |
+| Policy                                                        | Coverage limits                                                                                                                                                                                                                                                     |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `require-test-prefix`, `no-vague-test-names`                  | Only test-attributed functions, including qualified async test attributes and nested `cfg_attr`; helpers in test modules are exempt                                                                                                                                 |
+| `require-readable-spacing`                                    | Sibling declarations; imports, external modules, and single-line constants can form compact groups                                                                                                                                                                  |
+| `require-grouped-imports`                                     | Consecutive use runs in files, inline modules, and blocks; attributes, comments attached to imports, local exceptions, and empty groups are boundaries                                                                                                              |
+| `no-string-errors`                                            | Explicit `Result` contracts and type aliases with `String`, `&str`, or `Box<dyn Error>` errors; recognized test-only contracts are exempt, and `Box<dyn Error>` is accepted on functions named `main` and in trait implementations                                  |
+| `no-blanket-lint-suppression`                                 | `warnings` and `clippy::all` in `allow` or `expect`, including nested `cfg_attr`                                                                                                                                                                                    |
+| `no-vague-type-names`                                         | Written type names using generic `Manager`, `Helper`, `Processor`, or `Data` naming patterns                                                                                                                                                                        |
+| `no-vague-module-names`                                       | `mod` declarations named exactly `utils`, `util`, `helpers`, `helper`, `common`, or `misc`, reported at the declaration; test scopes, `tests/`, `examples/`, and `benches/` directories, and undeclared files are exempt                                            |
+| Comment rules                                                 | Ordinary line comments; rustdoc, block comments, strings, and opaque macro payloads are excluded                                                                                                                                                                    |
+| `no-stringified-error-mapping`                                | Direct untyped synchronous `map_err` closures returning the bound error's `.to_string()`                                                                                                                                                                            |
+| `no-restricted-visibility`                                    | Written `pub(super)`, `pub(self)`, and `pub(in path)` restrictions, including fields and associated items; macro-generated visibility is excluded                                                                                                                   |
+| `require-mod-rs-layout`                                       | Non-root `name.rs` files declaring out-of-line child modules; target roots, `mod.rs` files, inline modules, and `#[path]` children are exempt                                                                                                                       |
 | `require-sentence-per-line`                                   | `///` and `//!` prose paragraphs and list items; code blocks, tables, headings, quotes, HTML, link definitions, hard breaks, inline code, links, and common abbreviations are left alone; lines are aligned to the documented item and trailing empty lines dropped |
-| `require-lowercase-error-messages`, `no-vague-error-messages` | Literal messages at recognized thiserror, anyhow/eyre, context, `Err`, `.ok_or`, and I/O error sites; dynamic messages and handwritten `Display` are excluded                            |
-| `no-duplicate-error-context`                                  | Identical decoded literals on adjacent context calls, including literal-only lazy closures; formatting macros and interrupted chains are excluded                                        |
-| `require-create-for-fallible-constructors`                    | Receiver-free associated `new` functions explicitly returning outer `Result` or `Option`; trait implementations, differently named aliases, and nested wrappers are excluded             |
-| `require-error-sources`                                       | Explicit `Error` or `thiserror::Error` derives with direct recognized standard-error fields; aliases, custom types, containers, and conditional `cfg_attr` forms are excluded            |
+| `require-lowercase-error-messages`, `no-vague-error-messages` | Literal messages at recognized thiserror, anyhow/eyre, context, `Err`, `.ok_or`, `.expect`, and I/O error sites; dynamic messages and handwritten `Display` are excluded                                                                                            |
+| `no-duplicate-error-context`                                  | Identical decoded literals on adjacent context calls, including literal-only lazy closures; formatting macros and interrupted chains are excluded                                                                                                                   |
+| `require-create-for-fallible-constructors`                    | Receiver-free associated `new` functions explicitly returning outer `Result` or `Option`; trait implementations, differently named aliases, and nested wrappers are excluded                                                                                        |
+| `require-error-sources`                                       | Explicit `Error` or `thiserror::Error` derives with direct recognized standard-error fields; aliases, custom types, containers, and conditional `cfg_attr` forms are excluded                                                                                       |
+| `no-source-in-error-display`                                  | Struct and variant messages on explicit `Error` or `thiserror::Error` derives that print a whole source field; method calls on the source, enum-level messages, handwritten `Display`, and conditional `cfg_attr` forms are excluded                                |
+| `no-log-and-return`                                           | `error!`, `warn!`, and `eprintln!`, written bare or through `log::`, `tracing::`, or `std::`, directly before `return Err`, a tail `Err`, or `bail!` in the same block; `map_err` closures, opaque macro bodies, and test scopes are excluded                       |
+| `no-eager-error-context`                                      | `format!` passed directly to `.context` or `.wrap_err`; closure parameters, `self`, and values named or built as errors are exempt because `anyhow::Error` and `eyre::Report` have no lazy form                                                                     |
+| `no-dense-statement-runs`                                     | Runs of six or more sibling statements in one block with no blank line; comments do not end a run, items do, and test scopes and macro bodies are excluded                                                                                                          |
+| `require-blank-after-block`                                   | Multi-line `if`, `match`, loop, plain, and `unsafe` block statements directly followed by a statement; final return values, blocks used as values, test scopes, and macro bodies are excluded                                                                       |
 
 Import grouping separates standard-library, external, and local roots without requiring alphabetical order, vertical formatting, or moving imports to the top of a scope.
 Plain imports and explicit `self` imports remain distinct, so some shared prefixes must stay repeated to preserve namespace behavior.
 
 Lowercase checking examines the initial static text before any formatting placeholder and preserves capitalization later in the message.
+The same rule reports trailing `.`, `!`, `:`, `;`, or `,` after prose, so token-like messages such as `"."` and abbreviations such as `etc.` are left alone.
 Vague-message, vague-test-name, and comment checks use narrow dictionaries rather than judgments about all prose or identifiers.
 Read the installed rule modules for exact dictionaries, paths, and supported expression wrappers.
 
 The source-chain rule recognizes `io::Error`, `ParseIntError`, `ParseFloatError`, `Utf8Error`, and `FromUtf8Error` in their supported standard spellings.
 It accepts `#[source]`, `#[from]`, a field named `source`, or `#[error(transparent)]`, and reports at most one finding per wrapper.
 Place an intentional source-chain exception above the struct or enum variant.
+
+The source-display rule mirrors thiserror's argument resolution and never judges message wording.
+It has no fix because the right change depends on how the project reports errors: where only `{error}` is printed, removing the placeholder hides the cause.
+Report the whole chain first, or explain the message with a local exception when only that string reaches its reader.
+
+The statement-spacing rules use structure because syntax does not show where a statement's purpose changes.
+`no-dense-statement-runs` has no fix: one blank line anywhere satisfies it, so the author chooses a meaningful place.
+Its threshold is the `DENSE_RUN` constant in the installed rule module.
+`require-blank-after-block` is a house style rather than a universal Rust convention, so set it to `off` if a project prefers denser code.
 
 ## Read results
 
@@ -116,7 +132,10 @@ Only run these modes when application cleanup is part of the request.
 Both honor package selection, exclusions, configured levels, and local exceptions.
 Warnings are eligible for fixes; disabled and suppressed findings are not.
 
-The shipped fixes cover import grouping, declaration spacing, decorative comments, and exact boilerplate labels.
+The shipped fixes cover import grouping, declaration spacing, spacing after multi-line blocks, decorative comments, exact boilerplate labels, doc comment sentence lines, trailing error-message punctuation, and eagerly formatted error context.
+The first six only change whitespace, comments, or import layout, while the last two edit a string literal or a method call.
+The context fix applies only when the receiver is a call and every format argument is a literal, a path, a field, or a recognized read-only method such as `display()`, because deferring anything else could skip a side effect or capture `?`; other findings stay diagnostic-only.
+Types are not resolved, so a custom `.context` method without a lazy form can stop compiling after this fix; review the preview and add a local exception where needed.
 Scaffolding reminders such as `Your code here` stay diagnostic-only because they can indicate unfinished behavior.
 Other policies require manual correction, and some findings within a fixable rule can also lack an edit.
 Consult the installed registry and diagnostics rather than assuming every finding can be fixed.

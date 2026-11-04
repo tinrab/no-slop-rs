@@ -26,6 +26,7 @@ pub fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
                     "Use a private item, pub(crate), or pub instead.",
                 ));
             }
+
             visit::visit_vis_restricted(self, restricted);
         }
     }

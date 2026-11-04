@@ -29,6 +29,7 @@ pub fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
                     "Prefix the function name with test_, then describe the case and expected outcome.",
                 ));
             }
+
             visit::visit_item_fn(self, function);
         }
     }
@@ -50,10 +51,12 @@ pub fn test_attribute(meta: &Meta) -> bool {
     {
         return true;
     }
+
     let Meta::List(list) = meta else { return false };
     if !list.path.is_ident("cfg_attr") {
         return false;
     }
+
     let Ok(parts) = list.parse_args_with(Punctuated::<Meta, Token![,]>::parse_terminated) else {
         return false;
     };

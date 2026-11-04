@@ -29,6 +29,7 @@ pub fn apply(
         {
             continue;
         }
+
         let text = comment.text.trim_start_matches('/').trim();
         let Some(body) = text.strip_prefix("no-slop-allow") else {
             continue;
@@ -53,6 +54,7 @@ pub fn apply(
             }),
         }
     }
+
     let before = diagnostics.len();
     diagnostics.retain(|diagnostic| {
         !suppressions.iter().any(|suppression| {

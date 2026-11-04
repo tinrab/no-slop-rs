@@ -64,6 +64,7 @@ pub fn is_generated(source: &str, comments: &[Comment<'_>]) -> bool {
         {
             break;
         }
+
         if comment.text.contains("@generated")
             || comment
                 .text
@@ -71,6 +72,7 @@ pub fn is_generated(source: &str, comments: &[Comment<'_>]) -> bool {
         {
             return true;
         }
+
         previous_end = comment.range.end;
     }
     false

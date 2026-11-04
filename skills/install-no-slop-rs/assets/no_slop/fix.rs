@@ -18,6 +18,7 @@ use super::{
     config::Config,
     context::Context,
     diagnostic::{Report, TextEdit},
+    rules::without_trailing_punctuation,
     source,
 };
 
@@ -39,6 +40,7 @@ pub fn plan(path: &Path, original: &str, test_file: bool, config: &Config) -> Re
             seen.insert(current.clone()),
             "fixes cycle instead of stabilizing"
         );
+
         let syntax =
             syn::parse_file(&source::prepare(&current)).context("fixed source does not parse")?;
         let context = Context::new(path, &current, &syntax, test_file);
@@ -48,6 +50,7 @@ pub fn plan(path: &Path, original: &str, test_file: bool, config: &Config) -> Re
             report.failures.is_empty(),
             "fixing would leave invalid local exceptions"
         );
+
         let edits: Vec<_> = report
             .diagnostics
             .into_iter()
@@ -56,6 +59,7 @@ pub fn plan(path: &Path, original: &str, test_file: bool, config: &Config) -> Re
         if edits.is_empty() {
             return Ok(current);
         }
+
         ensure!(pass < 16, "fixes did not stabilize within 16 passes");
         let candidate = apply_edits(&current, edits)?;
         ensure!(candidate != current, "fixes made no progress");
@@ -76,6 +80,7 @@ pub fn apply_edits(source: &str, mut edits: Vec<TextEdit>) -> Result<String> {
             "fix has an invalid source range"
         );
     }
+
     edits.sort_by(|a, b| {
         (a.start, a.start == a.end, a.end, &a.replacement).cmp(&(
             b.start,
@@ -87,15 +92,16 @@ pub fn apply_edits(source: &str, mut edits: Vec<TextEdit>) -> Result<String> {
     edits.dedup();
     let mut selected: Vec<TextEdit> = Vec::new();
     for edit in edits {
-        if selected.last().is_some_and(|last| {
-            edit.end < last.end
-                || (edit.start == last.start)
-                || (last.start == last.end && edit.start == edit.end)
-        }) {
+        if selected
+            .last()
+            .is_some_and(|last| edit.end < last.end || edit.start == last.start)
+        {
             continue;
         }
+
         selected.push(edit);
     }
+
     let mut result = source.to_owned();
     for edit in selected.into_iter().rev() {
         result.replace_range(edit.start..edit.end, &edit.replacement);
@@ -142,6 +148,37 @@ pub fn doc_words(source: &str) -> Vec<String> {
         .collect()
 }
 
+/// Like [`doc_words`], but equate the only token edits fixes may make: trailing message punctuation and lazy context.
+pub fn comparable_words(source: &str) -> Vec<String> {
+    let words = doc_words(source);
+    let mut comparable = Vec::with_capacity(words.len());
+    let mut index = 0;
+    while index < words.len() {
+        let word = words[index].as_str();
+        index += 1;
+        let eager = match word {
+            "with_context" => "context",
+            "wrap_err_with" => "wrap_err",
+            _ => {
+                comparable.push(without_trailing_punctuation(word).unwrap_or_else(|| word.into()));
+                continue;
+            }
+        };
+        comparable.push(eager.to_owned());
+
+        let opens_closure = words[index..]
+            .iter()
+            .take(3)
+            .map(String::as_str)
+            .eq(["(", "|", "|"]);
+        if opens_closure {
+            comparable.push("(".to_owned());
+            index += 3;
+        }
+    }
+    comparable
+}
+
 pub fn validate(original: &str, candidate: &str) -> Result<()> {
     let prefix = source::prefix_len(original);
     ensure!(
@@ -149,10 +186,11 @@ pub fn validate(original: &str, candidate: &str) -> Result<()> {
         "fix changes the BOM or shebang"
     );
     ensure!(
-        doc_words(original) == doc_words(candidate)
+        comparable_words(original) == comparable_words(candidate)
             || super::imports::normalized(original)? == super::imports::normalized(candidate)?,
         "fix changes executable tokens or documentation"
     );
+
     let prepared = source::prepare(candidate);
     syn::parse_file(&prepared).context("fixed source does not parse")?;
     ensure!(
@@ -184,10 +222,12 @@ pub fn commit(path: &Path, original: &str, candidate: &str) -> Result<()> {
         );
         Ok(())
     };
+
     unchanged()?;
     let permissions = fs::metadata(path)?.permissions();
     ensure!(!permissions.readonly(), "source file is read-only");
     let parent = path.parent().context("source file has no parent")?;
+
     for _ in 0..32 {
         let mut name = OsString::from(".no-slop-fix-");
         name.push(path.file_name().context("source file has no name")?);
@@ -197,6 +237,7 @@ pub fn commit(path: &Path, original: &str, candidate: &str) -> Result<()> {
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
         let temporary = parent.join(name);
+
         let mut file = match OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -206,11 +247,13 @@ pub fn commit(path: &Path, original: &str, candidate: &str) -> Result<()> {
             Err(error) if error.kind() == ErrorKind::AlreadyExists => continue,
             Err(error) => return Err(error.into()),
         };
+
         let guard = Temporary(temporary);
         file.write_all(candidate.as_bytes())?;
         file.set_permissions(permissions)?;
         file.sync_all()?;
         drop(file);
+
         unchanged()?;
         fs::rename(&guard.0, path).context("replacing source with fixed contents")?;
         return Ok(());

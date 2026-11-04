@@ -25,6 +25,7 @@
         "The scanner reports the application UserManager violation with exit 1 and no scan failures.",
         "An explicit application --manifest-path override works.",
         "Copied runtime contains no LICENSE file.",
+        "UPSTREAM.md sits beside the installed scanner, and its Installed copy section records the source identity or unknown status, installed path, and deviations.",
         "Scanner dependencies are declared only in the xtask manifest, with no new or changed root workspace dependency declarations.",
         "Compatible existing workspace dependencies are inherited, while missing dependencies and scanner-specific features are declared directly in xtask."
       ]
@@ -41,6 +42,7 @@
         "The application scan respects disabled rules and has no scan failures.",
         "The agent compares the installed scanner with the bundle and preserves local-only changes.",
         "Copied runtime contains no LICENSE file.",
+        "The agent reads any existing UPSTREAM.md, and its Installed copy section records the incoming identity, the base or unknown status, adopted changes, deviations, and pending decisions.",
         "Scanner dependencies are declared only in the xtask manifest, with no new or changed root workspace dependency declarations.",
         "Compatible existing workspace dependencies are inherited, while missing dependencies and scanner-specific features are declared directly in xtask.",
         "For a policy-preserving update, newly introduced rule IDs remain off unless adopting them was requested; existing effective levels are preserved."
@@ -55,8 +57,9 @@
         "Application source and the existing check-app alias are preserved.",
         "The installed scanner reports the application UserManager violation with exit 1 and no scan failures.",
         "The xtask passes normal/test builds and project formatting checks.",
-        "Only runtime sources and normal dependencies are installed.",
+        "Only runtime sources, UPSTREAM.md, and normal dependencies are installed.",
         "Copied runtime contains no LICENSE file.",
+        "UPSTREAM.md sits beside the installed scanner, and its Installed copy section records the source identity or unknown status, installed path, and deviations.",
         "Scanner dependencies are declared only in the xtask manifest, with no new or changed root workspace dependency declarations.",
         "Compatible existing workspace dependencies are inherited, while missing dependencies and scanner-specific features are declared directly in xtask.",
         "Adding xtask to a virtual workspace without explicit default-members preserves its previous default package selection."

@@ -9,6 +9,7 @@ fn remove_comment(context: &Context<'_>, finding: Diagnostic) -> Diagnostic {
     let source = context.source;
     let start = finding.start.byte;
     let end = finding.end.byte;
+
     let line_start = source[..start].rfind('\n').map_or(0, |p| p + 1);
     let line_end = source[end..]
         .find('\n')
@@ -69,6 +70,7 @@ pub fn check_decorative(_file: &File, context: &Context<'_>) -> Vec<Diagnostic> 
             if leading == body.len() {
                 return leading >= 8;
             }
+
             let trailing = body.chars().rev().take_while(|&c| c == delimiter).count();
             leading >= 4 && trailing >= 4 && !body[leading..body.len() - trailing].trim().is_empty()
         })
@@ -163,6 +165,7 @@ pub fn check_todos(_file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
             if !suffix.is_empty() && !suffix.starts_with(':') && !suffix.starts_with(' ') {
                 return None;
             }
+
             let suffix = suffix.trim_start();
             Some(suffix.strip_prefix(':').unwrap_or(suffix).trim())
         });

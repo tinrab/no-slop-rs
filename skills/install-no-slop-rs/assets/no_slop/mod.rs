@@ -3,6 +3,7 @@
 //! Integrate by dispatching `no-slop` to [`run`].
 //! Only --fix writes application code.
 //! Rules inspect written syntax, including inactive cfg branches, without macro expansion, inferred types, or cross-file alias resolution.
+//! Provenance is recorded in `UPSTREAM.md` beside this file.
 
 pub(crate) mod cli;
 pub(crate) mod config;
@@ -67,6 +68,7 @@ pub(crate) fn scan(options: &Options) -> Result<Report> {
             });
         }
     }
+
     test_scope::propagate(&mut parsed);
     for file in parsed {
         let path = file
@@ -75,6 +77,7 @@ pub(crate) fn scan(options: &Options) -> Result<Report> {
             .unwrap_or(&file.path);
         let mut context = Context::new(path, &file.source, &file.syntax, file.is_test);
         context.crate_root = file.is_crate_root;
+
         let mut local = Report::default();
         check_file(&context, &file.syntax, &workspace.config, &mut local);
         if options.fix_mode.enabled() && local.failures.is_empty() {
@@ -83,6 +86,7 @@ pub(crate) fn scan(options: &Options) -> Result<Report> {
                 if candidate == file.source {
                     return Ok(None);
                 }
+
                 let syntax = syn::parse_file(&source::prepare(&candidate))?;
                 if options.fix_mode.applies() {
                     fix::commit(&file.path, &file.source, &candidate)?;
@@ -122,10 +126,12 @@ pub(crate) fn scan(options: &Options) -> Result<Report> {
                 }),
             }
         }
+
         report.summary.suppressed += local.summary.suppressed;
         report.diagnostics.extend(local.diagnostics);
         report.failures.extend(local.failures);
     }
+
     report.sort();
     Ok(report)
 }
@@ -137,6 +143,7 @@ pub(crate) fn parse_source(path: &Path, source: &str, report: &mut Report) -> Op
         report.summary.skipped += 1;
         return None;
     }
+
     let file = match syn::parse_file(&prepared) {
         Ok(file) => file,
         Err(error) => {
@@ -168,6 +175,7 @@ pub(crate) fn check_file(context: &Context<'_>, file: &File, config: &Config, re
         if level == Level::Off {
             continue;
         }
+
         diagnostics.extend(
             (rule.check)(file, context)
                 .into_iter()
@@ -177,6 +185,7 @@ pub(crate) fn check_file(context: &Context<'_>, file: &File, config: &Config, re
                 }),
         );
     }
+
     let (suppressed, failures) = suppression::apply(context, comments, &mut diagnostics);
     report.summary.suppressed += suppressed;
     report.diagnostics.extend(diagnostics);

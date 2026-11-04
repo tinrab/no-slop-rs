@@ -36,6 +36,7 @@ fn sync(root: &Path, check: bool) -> Result<()> {
     for (path, bytes) in read_tree(&source)? {
         expected.insert(PathBuf::from("no_slop").join(path), bytes);
     }
+
     expected.insert("dependencies.toml".into(), dependencies(root)?.into_bytes());
     if check {
         ensure!(
@@ -47,11 +48,13 @@ fn sync(root: &Path, check: bool) -> Result<()> {
         if destination.exists() {
             fs::remove_dir_all(&destination)?;
         }
+
         for (path, bytes) in &expected {
             let path = destination.join(path);
             fs::create_dir_all(path.parent().context("asset has no parent")?)?;
             fs::write(path, bytes)?;
         }
+
         println!("Synced {} skill assets.", expected.len());
     }
     Ok(())
@@ -62,6 +65,7 @@ fn read_tree(root: &Path) -> Result<BTreeMap<PathBuf, Vec<u8>>> {
     if !root.exists() {
         return Ok(files);
     }
+
     for entry in WalkDir::new(root).follow_links(false) {
         let entry = entry?;
         ensure!(
@@ -95,6 +99,7 @@ fn dependencies(root: &Path) -> Result<String> {
         if dependency.kind != DependencyKind::Normal {
             continue;
         }
+
         let features = serde_json::to_string(&dependency.features)?;
         let declaration = format!(
             "{{ version = \"{}\", features = {features}, default-features = {} }}",
@@ -102,6 +107,7 @@ fn dependencies(root: &Path) -> Result<String> {
         );
         dependencies.insert(dependency.name.clone(), declaration);
     }
+
     let mut text = String::from(
         "# Runtime requirements from the tested xtask manifest. Merge into the target xtask manifest.\n\n[dependencies]\n",
     );

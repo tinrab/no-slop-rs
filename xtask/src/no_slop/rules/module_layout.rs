@@ -14,6 +14,7 @@ pub fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
     if context.crate_root || is_mod_file {
         return Vec::new();
     }
+
     let Some(child) = file.items.iter().find_map(|item| match item {
         Item::Mod(module)
             if module.content.is_none()

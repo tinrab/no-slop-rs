@@ -13,6 +13,7 @@ fn fallible_new(signature: &Signature) -> bool {
     if signature.ident.unraw() != "new" || signature.receiver().is_some() {
         return false;
     }
+
     let ReturnType::Type(_, ty) = &signature.output else {
         return false;
     };
@@ -57,6 +58,7 @@ pub fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
                     }
                 }
             }
+
             visit::visit_item_impl(self, item);
         }
 
@@ -66,6 +68,7 @@ pub fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
                     self.constructor(&function.sig);
                 }
             }
+
             visit::visit_item_trait(self, item);
         }
     }

@@ -4,14 +4,18 @@
 mod comments;
 mod doc_sentences;
 mod duplicate_context;
+mod eager_context;
+mod error_display;
 mod error_messages;
 mod error_sources;
 mod error_support;
 mod fallible_constructors;
 mod grouped_imports;
 mod lint_suppressions;
+mod log_and_return;
 mod module_layout;
 mod readable_spacing;
+mod statement_spacing;
 mod string_errors;
 mod stringified_errors;
 mod test_names;
@@ -20,6 +24,7 @@ mod vague_errors;
 mod vague_names;
 mod visibility;
 
+pub use error_messages::without_trailing_punctuation;
 use syn::{File, Path};
 
 use super::{context::Context, diagnostic::Diagnostic};
@@ -58,8 +63,8 @@ pub const RULES: &[Rule] = &[
     },
     Rule {
         id: "require-lowercase-error-messages",
-        fixable: false,
-        description: "Begin literal messages at conventional error APIs with lowercase prose.",
+        fixable: true,
+        description: "Begin literal messages at conventional error APIs with lowercase prose and omit trailing punctuation.",
         check: error_messages::check,
     },
     Rule {
@@ -89,7 +94,7 @@ pub const RULES: &[Rule] = &[
     Rule {
         id: "no-string-errors",
         fixable: false,
-        description: "Use meaningful error types instead of Result errors of String or &str.",
+        description: "Use meaningful error types instead of Result errors of String, &str, or Box<dyn Error>.",
         check: string_errors::check,
     },
     Rule {
@@ -145,6 +150,42 @@ pub const RULES: &[Rule] = &[
         fixable: true,
         description: "Write each sentence of a doc comment on its own line.",
         check: doc_sentences::check,
+    },
+    Rule {
+        id: "no-source-in-error-display",
+        fixable: false,
+        description: "Keep a thiserror source out of its message so error chains print the cause once.",
+        check: error_display::check,
+    },
+    Rule {
+        id: "no-log-and-return",
+        fixable: false,
+        description: "Log a failure where it is handled instead of logging it and then returning it.",
+        check: log_and_return::check,
+    },
+    Rule {
+        id: "no-eager-error-context",
+        fixable: true,
+        description: "Use with_context or wrap_err_with instead of formatting a context message eagerly.",
+        check: eager_context::check,
+    },
+    Rule {
+        id: "no-vague-module-names",
+        fixable: false,
+        description: "Name modules for a responsibility rather than utils, helpers, common, or misc.",
+        check: vague_names::check_modules,
+    },
+    Rule {
+        id: "no-dense-statement-runs",
+        fixable: false,
+        description: "Break long runs of sibling statements with blank lines where their purpose changes.",
+        check: statement_spacing::check_runs,
+    },
+    Rule {
+        id: "require-blank-after-block",
+        fixable: true,
+        description: "Separate a multi-line block from the next statement unless that statement returns the final value.",
+        check: statement_spacing::check_block_endings,
     },
 ];
 

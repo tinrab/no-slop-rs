@@ -114,3 +114,15 @@ cargo run --manifest-path <absolute-xtask-manifest> -- no-slop --manifest-path <
 ```
 
 See [configuration and results](configuration.md) for exit codes and expected findings.
+
+## Record provenance
+
+Copying the runtime brings `UPSTREAM.md`, which describes where the bundled scanner comes from.
+Append an `## Installed copy` section to it, recording:
+
+- the source repository, `tinrab/no-slop-rs`, and the exact commit or a recoverable pristine snapshot of the copied bundle;
+- the installed scanner path;
+- intentional deviations from the bundle, such as renamed modules or adapted command wiring.
+
+Verify that the revision identifies the files actually copied; a skill version or the current upstream HEAD alone is insufficient.
+If provenance cannot be established, record the source as `unknown` rather than guessing.

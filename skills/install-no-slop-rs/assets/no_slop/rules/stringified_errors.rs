@@ -29,24 +29,28 @@ fn stringifies_error(call: &ExprMethodCall) -> bool {
     if call.method != "map_err" || call.args.len() != 1 {
         return false;
     }
+
     let Expr::Closure(closure) = unwrapped(&call.args[0]) else {
         return false;
     };
     if closure.asyncness.is_some() || closure.inputs.len() != 1 {
         return false;
     }
+
     let Pat::Ident(binding) = &closure.inputs[0] else {
         return false;
     };
     if binding.by_ref.is_some() || binding.subpat.is_some() {
         return false;
     }
+
     let Expr::MethodCall(conversion) = unwrapped(&closure.body) else {
         return false;
     };
     if conversion.method != "to_string" || !conversion.args.is_empty() {
         return false;
     }
+
     let Expr::Path(receiver) = unwrapped(&conversion.receiver) else {
         return false;
     };
@@ -72,6 +76,7 @@ pub fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
                     "Wrap the original error or add context while retaining its source; explain intentional serialization with a local exception.",
                 ));
             }
+
             visit::visit_expr_method_call(self, call);
         }
     }

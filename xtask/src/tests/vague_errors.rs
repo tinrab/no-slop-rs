@@ -5,6 +5,19 @@ use super::findings;
 const RULE: &str = "no-vague-error-messages";
 
 #[test]
+fn test_expect_messages_share_the_placeholder_dictionary() {
+    for expression in [
+        "value.expect(\"failed\")",
+        "value.expect(\"Failed.\")",
+        "value.expect(\"something went wrong\")",
+    ] {
+        let source = format!("fn f() {{ {expression}; }}");
+        assert_eq!(findings(RULE, &source).len(), 1, "{source}");
+    }
+    assert!(findings(RULE, "fn f() { value.expect(\"config is loaded\"); }").is_empty());
+}
+
+#[test]
 fn test_rejects_only_complete_normalized_placeholder_messages() {
     for message in [
         "error",

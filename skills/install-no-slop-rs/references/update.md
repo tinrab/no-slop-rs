@@ -5,8 +5,13 @@ Use this procedure after confirming the application belongs to an existing Cargo
 ## Merge runtime and policy changes
 
 Find the active scanner through the dispatcher and compare it with the bundled runtime.
+Read `UPSTREAM.md` beside it, or the project's equivalent record, and the relevant Git history.
 Record its existing rule IDs, effective levels, exclusions, custom diagnostics, and local tests before merging.
 An absent rule-level entry currently means `error`; preserve effective behavior as well as explicit configuration.
+
+When the recorded source revision or snapshot lets you recover the original files, use it as the merge base and review both base to local and base to incoming.
+A package version, file timestamp, or the current local tree is not a base.
+Without a base, a two-way comparison cannot distinguish local customization from upstream change, so port only changes you understand, preserve unexplained differences, and do not claim a three-way merge.
 
 Merge compatible changes into the installed copy, retaining local-only rules, tests, diagnostics, command wiring, and unrelated edits.
 Do not replace the directory wholesale or discard differences you do not understand.
@@ -43,6 +48,18 @@ Remove obsolete configuration keys and suppression directives only when adopting
 If a local implementation is retained, keep its registration and configuration valid.
 Unknown IDs fail validation, so do not leave references to deleted rules.
 Do not enable or configure Clippy as a side effect of this migration.
+
+## Record provenance
+
+Merge changes to the bundled part of `UPSTREAM.md` and keep the project's `## Installed copy` section, creating that section if the installation has none.
+Record there:
+
+- the incoming source identity and the base used, or that the base is `unknown`;
+- adopted changes and intentional local deviations;
+- deferred or conflicting changes and the decisions they still need.
+
+Advance the recorded source revision only when the complete incoming bundle has been reconciled and remaining differences are recorded as intentional.
+For a partial update, keep the prior revision and list exactly which changes were adopted or remain pending.
 
 ## Verify the merged copy
 

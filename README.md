@@ -38,14 +38,12 @@ cargo xtask no-slop --format json
 The scanner reads source without building application crates or expanding macros.
 All rules default to errors.
 Preview mechanical fixes with `--fix-dry-run`, then apply them with `--fix`.
-Fixes cover import grouping, declaration spacing, decorative comments, exact boilerplate comments, and doc comment sentence lines.
 Edit the copied rules or [configure levels, exclusions, and local exceptions](skills/install-no-slop-rs/references/configuration.md) to fit your project.
 Exit codes are 0 for success, 1 for error findings, and 2 for invalid input or incomplete coverage.
 
 ## Rules
 
 Each diff replaces a violation with an accepted alternative.
-These are suggested corrections; only the five rules listed above support automatic fixes.
 Checks follow written syntax without resolving types, imported aliases, or macro expansions.
 See the [configuration reference](skills/install-no-slop-rs/references/configuration.md) for coverage limits and exceptions.
 
@@ -95,10 +93,11 @@ Replace placeholder or numeric-only test names with descriptions of the behavior
 
 ### `require-lowercase-error-messages`
 
-Begin error-message prose with lowercase text while preserving acronyms and identifiers later in the message.
+Begin error-message prose with lowercase text while preserving acronyms and identifiers later in the message, and end it without punctuation.
+This covers `.expect()` messages too, and `--fix` removes trailing punctuation.
 
 ```diff
--bail!("Failed to read HTTP response");
+-bail!("Failed to read HTTP response.");
 +bail!("failed to read HTTP response");
 ```
 
@@ -152,7 +151,8 @@ Separate sibling declarations with a blank line, allowing compact groups of impo
 
 ### `no-string-errors`
 
-Use meaningful error types instead of `String` or `&str` in `Result` error contracts outside test scopes.
+Use meaningful error types instead of `String`, `&str`, or `Box<dyn Error>` in `Result` error contracts outside test scopes.
+`Box<dyn Error>` stays allowed on `main` and in trait implementations, whose signatures are fixed.
 
 ```diff
 -fn load() -> Result<Config, String> {
@@ -250,10 +250,90 @@ The fix also aligns stray doc lines with the documented item and drops trailing 
 +/// Fails when the magic bytes are missing.
 ```
 
+### `no-source-in-error-display`
+
+Keep a thiserror source out of its message, because reporters that walk the error chain would print the cause twice.
+Message wording is not judged, and details taken from the source, such as `source.kind()`, are accepted.
+If your project only prints `{error}`, removing the placeholder hides the cause, so report the whole chain first or explain the message with a local exception.
+
+```diff
+ #[derive(Debug, thiserror::Error)]
+ enum ConfigError {
+-    #[error("could not read configuration: {0}")]
++    #[error("could not read configuration")]
+     Read(#[from] io::Error),
+ }
+```
+
+### `no-log-and-return`
+
+Log a failure where it is handled, instead of logging it and then returning it for the caller to report again.
+
+```diff
+ if let Err(error) = result {
+-    tracing::error!("could not read configuration: {error}");
+     return Err(error);
+ }
+```
+
+### `no-eager-error-context`
+
+Build a context message only on failure instead of formatting it on every call.
+Error values such as `error.context(format!(...))` are exempt because they have no lazy form.
+
+```diff
+-read_config(path).context(format!("reading {}", path.display()))
++read_config(path).with_context(|| format!("reading {}", path.display()))
+```
+
+### `no-vague-module-names`
+
+Name a module for a responsibility instead of `utils`, `util`, `helpers`, `helper`, `common`, or `misc`.
+Test scopes and `tests/`, `examples/`, and `benches/` directories are exempt, because a shared `common` module is how those separate crates reuse code.
+
+```diff
+-mod utils;
++mod retry;
+```
+
+### `no-dense-statement-runs`
+
+Break a run of six or more sibling statements with blank lines where its purpose changes.
+A change of purpose is not visible in syntax, so this only reports the run: one blank line anywhere satisfies it, and choosing the right place is up to you.
+Test scopes are exempt.
+
+```diff
+ let id = generate_id();
++
+ let user = fetch_user(&id)?;
+ let profile = load_profile(&user)?;
+ let settings = load_settings(&user)?;
+ let theme = settings.theme();
++
+ update_cache(id, &profile);
+ notify(&user);
+ record_login(&user);
+```
+
+### `require-blank-after-block`
+
+Separate a multi-line `if`, `match`, loop, or block from the next statement, so the end of a nested section is easy to see.
+A final return value may follow directly, and values such as `let x = if ...` are not checked.
+Test scopes are exempt.
+
+```diff
+ for item in items {
+     subtotal += item.price;
+ }
++
+ let discount = discount_for(subtotal);
+ subtotal - discount
+```
+
 ## Update an installed copy
 
 Ask your agent:
 
 > Use $install-no-slop-rs to update this workspace's scanner while preserving local rules and configuration.
 
-The [update procedure](skills/install-no-slop-rs/references/update.md) merges changes into your copy instead of overwriting it.
+The [update procedure](skills/install-no-slop-rs/references/update.md) merges changes into your copy instead of overwriting it, and records provenance in `UPSTREAM.md` for future updates.

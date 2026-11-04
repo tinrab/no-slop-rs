@@ -1,7 +1,7 @@
 //! Require a blank physical line between sibling item declarations.
 //! Imports, external modules, and single-line constants may form compact groups.
 //! A leading comment starts a new group; same-line trailing comments belong to the prior item.
-//! Fields, enum variants, ordinary statements, and macro bodies are outside this rule.
+//! Fields, enum variants, and macro bodies are outside this rule, and `statement_spacing` covers ordinary statements.
 //! Spacing inside an item's attributes and documentation is untouched.
 
 use proc_macro2::Span;
@@ -12,12 +12,7 @@ use syn::{
     visit::{self, Visit},
 };
 
-use super::super::{
-    context::Context,
-    diagnostic::Diagnostic,
-    fix,
-    source::{self, Comment},
-};
+use super::super::{context::Context, diagnostic::Diagnostic, fix};
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum Group {
@@ -28,8 +23,68 @@ enum Group {
 
 struct Check<'a> {
     context: &'a Context<'a>,
-    comments: Vec<Comment<'a>>,
     findings: Vec<Diagnostic>,
+}
+
+/// Whether a line in this gap between two tokens is blank, ignoring lines inside comments.
+pub fn has_blank_line(context: &Context<'_>, start: usize, end: usize) -> bool {
+    let mut offset = start;
+    for (index, line) in context.source[start..end].split_inclusive('\n').enumerate() {
+        let line_end = offset + line.len();
+        if index > 0
+            && line.ends_with('\n')
+            && line.trim().is_empty()
+            && !context
+                .comments
+                .iter()
+                .any(|comment| comment.range.start < line_end && comment.range.end > offset)
+        {
+            return true;
+        }
+
+        offset = line_end;
+    }
+    false
+}
+
+/// The first comment in this gap on its own line, which belongs to the following sibling.
+fn leading_comment(context: &Context<'_>, end: usize, start: usize) -> Option<usize> {
+    context
+        .comments
+        .iter()
+        .find(|comment| {
+            comment.range.start >= end
+                && comment.range.end <= start
+                && context.source[end..comment.range.start].contains('\n')
+        })
+        .map(|comment| comment.range.start)
+}
+
+/// The edit that separates two siblings, or `None` when a blank line already follows the first.
+/// It goes above a leading comment, so the comment stays attached to what it describes.
+pub fn separating_edit(
+    context: &Context<'_>,
+    end: usize,
+    start: usize,
+) -> Option<(usize, usize, String)> {
+    let boundary = leading_comment(context, end, start).unwrap_or(start);
+    if has_blank_line(context, end, boundary) {
+        return None;
+    }
+
+    let line_start = context.source[..boundary].rfind('\n').map_or(0, |p| p + 1);
+    let newline = fix::newline(context.source, boundary);
+    if line_start >= end
+        && context.source[line_start..boundary]
+            .chars()
+            .all(char::is_whitespace)
+    {
+        Some((line_start, line_start, newline.to_owned()))
+    } else {
+        let prefix = &context.source[end..boundary];
+        let start = end + prefix.trim_end_matches([' ', '\t']).len();
+        Some((start, boundary, newline.repeat(2)))
+    }
 }
 
 impl Check<'_> {
@@ -40,52 +95,17 @@ impl Check<'_> {
     }
 
     fn pair<T: Spanned>(&mut self, previous: &T, current: &T, group: fn(&T) -> Option<Group>) {
-        let previous_span = previous.span();
         let current_span = current.span();
-        let end = previous_span.byte_range().end;
+        let end = previous.span().byte_range().end;
         let start = current_span.byte_range().start;
-        let comments: Vec<_> = self
-            .comments
-            .iter()
-            .filter(|comment| comment.range.start >= end && comment.range.end <= start)
-            .collect();
-        let leading = comments
-            .iter()
-            .find(|comment| self.context.source[end..comment.range.start].contains('\n'));
         let grouped = group(previous).is_some() && group(previous) == group(current);
-        if grouped && leading.is_none() {
+        if grouped && leading_comment(self.context, end, start).is_none() {
             return;
         }
 
-        let boundary = leading.map_or(start, |comment| comment.range.start);
-        let mut offset = end;
-        for (index, line) in self.context.source[end..boundary]
-            .split_inclusive('\n')
-            .enumerate()
-        {
-            let line_end = offset + line.len();
-            let inside_comment = comments
-                .iter()
-                .any(|comment| comment.range.start < line_end && comment.range.end > offset);
-            if index > 0 && line.ends_with('\n') && line.trim().is_empty() && !inside_comment {
-                return;
-            }
-            offset = line_end;
-        }
-        let line_start = self.context.source[..boundary]
-            .rfind('\n')
-            .map_or(0, |p| p + 1);
-        let newline = fix::newline(self.context.source, boundary);
-        let (fix_start, fix_end, replacement) = if line_start >= end
-            && self.context.source[line_start..boundary]
-                .chars()
-                .all(char::is_whitespace)
-        {
-            (line_start, line_start, newline.to_owned())
-        } else {
-            let prefix = &self.context.source[end..boundary];
-            let start = end + prefix.trim_end_matches([' ', '\t']).len();
-            (start, boundary, newline.repeat(2))
+        let Some((fix_start, fix_end, replacement)) = separating_edit(self.context, end, start)
+        else {
+            return;
         };
         self.findings.push(self.context.report(
             "require-readable-spacing", current_span, "missing blank line between declarations",
@@ -104,6 +124,7 @@ impl<'ast> Visit<'ast> for Check<'_> {
         if let Some((_, items)) = &module.content {
             self.pairs(items, item_group);
         }
+
         visit::visit_item_mod(self, module);
     }
 
@@ -137,6 +158,7 @@ impl<'ast> Visit<'ast> for Check<'_> {
                 self.pair(previous, current, item_group);
             }
         }
+
         visit::visit_block(self, block);
     }
 }
@@ -144,7 +166,6 @@ impl<'ast> Visit<'ast> for Check<'_> {
 pub fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
     let mut check = Check {
         context,
-        comments: source::comments(context.source),
         findings: Vec::new(),
     };
     check.visit_file(file);
@@ -168,6 +189,7 @@ fn compact_group(span: Span, attrs: &[Attribute], group: Group) -> Option<Group>
     if attrs.iter().any(|attr| attr.path().is_ident("doc")) {
         return None;
     }
+
     if group == Group::Constants && span.start().line != span.end().line {
         return None;
     }

@@ -38,6 +38,7 @@ pub fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
                             "Remove the duplicate context or describe the additional operation or boundary.",
                         ));
             }
+
             visit::visit_expr_method_call(self, outer);
         }
     }

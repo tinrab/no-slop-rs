@@ -68,6 +68,8 @@ fn test_context_result_and_io_error_messages() {
         "io::Error::other(\"Failed\")",
         "Error::new(kind, format!(\"Failed\"))",
         "Error::other(\"Failed\")",
+        "value.expect(\"Failed\")",
+        "value.expect(&format!(\"Failed: {path}\"))",
     ] {
         let diagnostics = findings(RULE, &format!("fn f() {{ {expression}; }}"));
         assert_eq!(diagnostics.len(), 1, "{expression}");
@@ -87,6 +89,10 @@ fn test_context_result_and_io_error_messages() {
         "anyhow::Context::context(value, \"Failed\")",
         "Err(MESSAGE)",
         "value.ok_or_else(|| MESSAGE)",
+        "value.expect(MESSAGE)",
+        "value.expect()",
+        "value.expect(\"Failed\", extra)",
+        "value.expect(\"config is loaded before workers start\")",
     ] {
         assert!(
             findings(RULE, &format!("fn f() {{ {expression}; }}")).is_empty(),
@@ -148,7 +154,7 @@ fn test_checks_the_initial_static_text_and_preserves_identifiers_later() {
         r#""{UppercaseName} Failed""#,
         r#""{} Failed""#,
         r#""{{}} {UppercaseName} Failed""#,
-        r#""failed. Another sentence.""#,
+        r#""failed. Another sentence""#,
     ] {
         let source = format!("fn f() {{ bail!({literal}); }}");
         assert!(findings(RULE, &source).is_empty(), "{source}");
@@ -178,7 +184,6 @@ fn test_does_not_scan_unrelated_strings_display_or_opaque_macro_payloads() {
             tracing::error!("Failed");
             panic!("Failed");
             assert!(false, "Failed");
-            value.expect("Failed");
             custom! { bail!("Failed"); }
             let text = "bail!(\"Failed\")";
             let formatted = format!("Failed");
@@ -235,6 +240,120 @@ fn test_levels_exceptions_test_scopes_and_diagnostic_only_fixing() {
         .len(),
         1
     );
+}
+
+fn fixed(source: &str) -> String {
+    fix::plan(Path::new("src/lib.rs"), source, false, &Config::default()).unwrap()
+}
+
+#[test]
+fn test_fixes_trailing_punctuation_after_prose_at_every_site() {
+    for (before, after) in [
+        (
+            r#"fn f() { bail!("bad config."); }"#,
+            r#"fn f() { bail!("bad config"); }"#,
+        ),
+        (
+            r#"fn f() { value.context("reading config!"); }"#,
+            r#"fn f() { value.context("reading config"); }"#,
+        ),
+        (
+            r#"fn f() { value.expect("config is loaded."); }"#,
+            r#"fn f() { value.expect("config is loaded"); }"#,
+        ),
+        (
+            r#"fn f() { anyhow!("bad config: {}.", path); }"#,
+            r#"fn f() { anyhow!("bad config: {}", path); }"#,
+        ),
+        (
+            r#"fn f() { value.context("loading..."); }"#,
+            r#"fn f() { value.context("loading"); }"#,
+        ),
+        (
+            r#"fn f() { read().context(format!("reading {path}:")); }"#,
+            r#"fn f() { read().with_context(|| format!("reading {path}")); }"#,
+        ),
+        (
+            r##"fn f() { bail!(r#"bad "config"."#); }"##,
+            r##"fn f() { bail!(r#"bad "config""#); }"##,
+        ),
+        (
+            "#[derive(thiserror::Error)] #[error(\"bad config.\")] struct BadConfig;",
+            "#[derive(thiserror::Error)] #[error(\"bad config\")] struct BadConfig;",
+        ),
+        (
+            "fn f() { bail!(\"échec.\"); }\r\n",
+            "fn f() { bail!(\"échec\"); }\r\n",
+        ),
+        (
+            "use std::env;\nuse std::fs;\nfn f() { bail!(\"bad config.\"); }",
+            "use std::{env, fs};\n\nfn f() { bail!(\"bad config\"); }",
+        ),
+    ] {
+        assert_eq!(fixed(before), after, "{before}");
+        assert_eq!(fixed(after), after, "fixes must be idempotent");
+    }
+}
+
+#[test]
+fn test_trailing_punctuation_needs_prose_and_leaves_other_endings_alone() {
+    for literal in [
+        ".",
+        ":",
+        "::",
+        ";",
+        "...",
+        "123.",
+        "are you sure?",
+        "bad config",
+        "bad config ",
+        "bad config.\n",
+        "paths, files, etc.",
+        "for example, e.g.",
+        "bad config .",
+    ] {
+        let source = format!("fn f() {{ value.expect({literal:?}); }}");
+        assert!(findings(RULE, &source).is_empty(), "{source}");
+    }
+    assert_eq!(findings(RULE, r#"fn f() { bail!("{}."); }"#).len(), 1);
+    assert_eq!(findings(RULE, r#"fn f() { bail!("Failed."); }"#).len(), 2);
+}
+
+#[test]
+fn test_escaped_punctuation_is_reported_without_an_edit() {
+    let source = r#"fn f() { bail!("bad config\x2e"); }"#;
+    let diagnostics = findings(RULE, source);
+    assert_eq!(diagnostics.len(), 1);
+    assert!(diagnostics[0].fix.is_none());
+    assert_eq!(fixed(source), source);
+}
+
+#[test]
+fn test_validation_accepts_only_the_message_and_context_edits() {
+    for (before, after) in [
+        (r#"fn f() { a("b."); }"#, r#"fn f() { a("b"); }"#),
+        (
+            r#"fn f() { a().context(format!("b")); }"#,
+            r#"fn f() { a().with_context(|| format!("b")); }"#,
+        ),
+    ] {
+        assert!(fix::validate(before, after).is_ok(), "{after}");
+    }
+    for (before, after) in [
+        (r#"fn f() { a("b."); }"#, r#"fn f() { a("c"); }"#),
+        (r#"fn f() { a("b. c"); }"#, r#"fn f() { a("b"); }"#),
+        (r#"fn f() { a(".");  }"#, r#"fn f() { a(""); }"#),
+        (
+            r#"fn f() { a().context(b); }"#,
+            r#"fn f() { a().with_context(|| c); }"#,
+        ),
+        (
+            r#"fn f() { a().context(b); }"#,
+            r#"fn f() { a().other(b); }"#,
+        ),
+    ] {
+        assert!(fix::validate(before, after).is_err(), "{after}");
+    }
 }
 
 #[test]

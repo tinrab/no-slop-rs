@@ -33,7 +33,7 @@ pub fn propagate(files: &mut [ParsedFile]) {
         let stem = file
             .path
             .file_stem()
-            .expect("Rust source files have a stem");
+            .expect("discovered source files have a stem");
         let directory =
             if file.is_crate_root || matches!(stem.to_str(), Some("lib" | "main" | "mod")) {
                 parent.to_owned()
@@ -50,12 +50,14 @@ pub fn propagate(files: &mut [ParsedFile]) {
             &mut edges,
         );
     }
+
     loop {
         let mut changed = false;
         for index in 0..files.len() {
             if files[index].is_test || files[index].is_crate_root {
                 continue;
             }
+
             let incoming: Vec<_> = edges.iter().filter(|edge| edge.target == index).collect();
             if !incoming.is_empty()
                 && incoming
@@ -111,6 +113,7 @@ fn collect(
             if !value.path.is_ident("path") {
                 return None;
             }
+
             let Expr::Lit(lit) = &value.value else {
                 return None;
             };

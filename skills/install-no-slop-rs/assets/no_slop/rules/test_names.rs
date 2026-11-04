@@ -36,6 +36,7 @@ pub fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
                     "Name the behavior, scenario, or expected outcome instead of using a placeholder or number.",
                 ));
             }
+
             visit::visit_item_fn(self, function);
         }
     }

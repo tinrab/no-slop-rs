@@ -40,11 +40,13 @@ pub fn discover(options: &Options) -> Result<Workspace> {
             .current_dir(path.parent().context("manifest has no parent")?)
             .manifest_path(path);
     }
+
     let metadata = command.exec().context("discovering Cargo workspace")?;
     let root = metadata.workspace_root.into_std_path_buf();
     let target = metadata.target_directory.into_std_path_buf();
     let config = Config::parse(&metadata.workspace_metadata)?;
     let exclusions = config.exclusions()?;
+
     let members: Vec<_> = metadata
         .packages
         .iter()
@@ -56,6 +58,7 @@ pub fn discover(options: &Options) -> Result<Workspace> {
             "unknown workspace package: {name}"
         );
     }
+
     let mut index = SourceIndex::default();
     for package in members.iter().filter(|package| {
         options.packages.is_empty()
@@ -66,6 +69,7 @@ pub fn discover(options: &Options) -> Result<Workspace> {
     }) {
         collect_package(package, &root, &target, &exclusions, &mut index)?;
     }
+
     index.report.summary.skipped += index.skipped_directories.len();
     Ok(Workspace {
         root,
@@ -121,6 +125,7 @@ fn collect_package(
             }),
         }
     }
+
     let test_targets: BTreeSet<_> = targets
         .iter()
         .filter(|(_, test)| *test)
@@ -142,6 +147,7 @@ fn collect_package(
             );
         }
     }
+
     for scan_root in roots {
         collect_directory(
             &scan_root,
@@ -175,10 +181,12 @@ fn collect_directory(
             if entry.depth() == 0 || !entry.file_type().is_dir() {
                 return true;
             }
+
             // A nested package is visited through its own workspace membership.
             if path.join("Cargo.toml").is_file() {
                 return false;
             }
+
             let relative = path.strip_prefix(root).unwrap_or(path);
             let excluded = path.starts_with(target)
                 || config::default_excluded(relative)
@@ -209,15 +217,19 @@ fn collect_directory(
         if entry.file_type().is_dir() {
             continue;
         }
+
         if entry.file_type().is_symlink() {
             if index.visited.insert(path.to_owned()) {
                 index.report.summary.skipped += 1;
             }
+
             continue;
         }
+
         if path.extension().is_none_or(|extension| extension != "rs") {
             continue;
         }
+
         let first_visit = index.visited.insert(path.to_owned());
         let relative = path.strip_prefix(root).unwrap_or(path);
         if path.starts_with(target)
@@ -227,8 +239,10 @@ fn collect_directory(
             if first_visit {
                 index.report.summary.skipped += 1;
             }
+
             continue;
         }
+
         let is_test = (path
             .strip_prefix(package_root)
             .is_ok_and(|relative| relative.starts_with("tests"))

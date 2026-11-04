@@ -82,18 +82,21 @@ impl Options {
                     if matches!(options.fix_mode, FixMode::Preview) {
                         bail!("--fix and --fix-dry-run cannot be combined");
                     }
+
                     options.fix_mode = FixMode::Apply;
                 }
                 Some("--fix-dry-run") => {
                     if options.fix_mode.applies() {
                         bail!("--fix and --fix-dry-run cannot be combined");
                     }
+
                     options.fix_mode = FixMode::Preview;
                 }
                 Some("--help" | "-h") => options.help = true,
                 _ => bail!("unknown no-slop argument: {}", arg.to_string_lossy()),
             }
         }
+
         if options.list_rules && options.fix_mode.enabled() {
             bail!("fix modes cannot be combined with --list-rules");
         }
@@ -123,6 +126,7 @@ pub fn run(args: &[OsString]) -> ExitCode {
         );
         return ExitCode::SUCCESS;
     }
+
     if options.list_rules {
         match options.format {
             Format::Text => {
@@ -145,6 +149,7 @@ pub fn run(args: &[OsString]) -> ExitCode {
         }
         return ExitCode::SUCCESS;
     }
+
     let report = match scan(&options) {
         Ok(report) => report,
         Err(error) => {
@@ -197,6 +202,7 @@ fn write_text(report: &Report) -> Result<()> {
         )?;
         writeln!(output, "  help: {}", diagnostic.help)?;
     }
+
     for change in &report.changes {
         writeln!(
             output,
@@ -210,6 +216,7 @@ fn write_text(report: &Report) -> Result<()> {
         )?;
         write!(output, "{}", change.diff)?;
     }
+
     for failure in &report.failures {
         let location = failure
             .position
@@ -222,6 +229,7 @@ fn write_text(report: &Report) -> Result<()> {
             failure.message
         )?;
     }
+
     writeln!(
         output,
         "{} files scanned, {} excluded paths, {} suppressed findings, {} findings, {} scan errors",

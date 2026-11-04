@@ -131,9 +131,67 @@ pub const fn two_sentences() -> u8 {
     5
 }
 
+// Triggers `no-log-and-return`: the caller receives the error that was just logged.
+/// Read configuration while demonstrating duplicate failure reporting.
+///
+/// # Errors
+///
+/// Returns an error when the configuration file cannot be read as UTF-8 text.
+pub fn logged_failure(path: &Path) -> io::Result<String> {
+    match read_to_string(path) {
+        Ok(text) => Ok(text),
+        Err(error) => {
+            eprintln!("could not read configuration: {error}");
+            Err(error)
+        }
+    }
+}
+
+// Triggers `no-eager-error-context`: the message is formatted even on success.
+/// Read configuration while demonstrating eagerly formatted context.
+///
+/// # Errors
+///
+/// Returns an error when the configuration file cannot be read as UTF-8 text.
+pub fn eager_context(path: &Path) -> anyhow::Result<String> {
+    read_to_string(path).context(format!("reading {}", path.display()))
+}
+
+// Triggers `no-vague-module-names`: helpers does not name a responsibility.
+pub mod helpers {
+    #[must_use]
+    pub const fn helper_value() -> u8 {
+        6
+    }
+}
+
+// Triggers `no-dense-statement-runs`: eight statements run without a blank line.
+#[must_use]
+pub fn dense_statements(values: &[u8]) -> Vec<u8> {
+    let mut output = Vec::new();
+    output.extend_from_slice(values);
+    output.push(1);
+    output.push(2);
+    output.push(3);
+    output.push(4);
+    output.sort_unstable();
+    output
+}
+
+// Triggers `require-blank-after-block`: a statement follows the loop with no blank line.
+#[must_use]
+pub fn block_without_blank(values: &[u8]) -> u8 {
+    let mut total = 0_u8;
+    for value in values {
+        total = total.wrapping_add(*value);
+    }
+    total = total.wrapping_add(1);
+    total
+}
+
 #[cfg(test)]
 mod tests {
-    use std::io;
+    use std::{io, num::ParseIntError};
 
     use super::first_declaration;
 
@@ -142,6 +200,19 @@ mod tests {
         // Triggers `require-error-sources`: this field should declare #[source].
         #[error("could not read configuration")]
         Read(io::Error),
+        // Triggers `no-source-in-error-display`: source() already returns this field.
+        #[error("could not parse configuration: {0}")]
+        Parse(#[from] ParseIntError),
+    }
+
+    #[test]
+    fn test_parse_failure_repeats_its_source() {
+        let source = "x".parse::<u8>().unwrap_err();
+        let failure = ReadFailure::from(source.clone());
+        assert_eq!(
+            failure.to_string(),
+            format!("could not parse configuration: {source}")
+        );
     }
 
     // Triggers `no-vague-test-names`: the prefix alone describes no behavior.

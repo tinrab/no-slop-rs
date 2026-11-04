@@ -3,13 +3,48 @@
 
 use proc_macro2::TokenStream;
 use syn::{
-    Attribute, Expr, ExprCall, ExprMethodCall, File, ItemStruct, Lit, LitStr, Macro, Stmt, Token,
-    Variant,
+    Attribute, Expr, ExprCall, ExprMethodCall, Field, File, ItemStruct, Lit, LitStr, Macro, Path,
+    Stmt, Token, Variant,
+    ext::IdentExt as _,
     parse::{ParseStream, Parser as _},
+    punctuated::Punctuated,
     visit::{self, Visit},
 };
 
 use super::path_name;
+
+pub fn conditional(attributes: &[Attribute]) -> bool {
+    attributes
+        .iter()
+        .any(|attr| attr.path().is_ident("cfg_attr"))
+}
+
+/// Whether a type explicitly derives thiserror's `Error`, written with or without its path.
+pub fn derived(attributes: &[Attribute]) -> bool {
+    !conditional(attributes)
+        && attributes.iter().any(|attr| {
+            attr.path().is_ident("derive")
+                && attr
+                    .parse_args_with(Punctuated::<Path, Token![,]>::parse_terminated)
+                    .is_ok_and(|paths| {
+                        paths.iter().any(|path| {
+                            matches!(path_name(path).as_str(), "Error" | "thiserror::Error")
+                        })
+                    })
+        })
+}
+
+/// A field thiserror returns from `source()`, including an implicit field named `source`.
+pub fn is_source_field(field: &Field) -> bool {
+    field
+        .ident
+        .as_ref()
+        .is_some_and(|name| name.unraw() == "source")
+        || field
+            .attrs
+            .iter()
+            .any(|attr| attr.path().is_ident("source") || attr.path().is_ident("from"))
+}
 
 pub fn unwrapped(mut expr: &Expr) -> &Expr {
     loop {
@@ -35,6 +70,7 @@ fn argument(tokens: TokenStream, index: usize) -> Option<Expr> {
             input.parse::<Expr>()?;
             input.parse::<Token![,]>()?;
         }
+
         let message = input.parse::<Expr>()?;
         if !input.is_empty() {
             input.parse::<Token![,]>()?;
@@ -46,7 +82,7 @@ fn argument(tokens: TokenStream, index: usize) -> Option<Expr> {
     .ok()
 }
 
-fn format_macro(mac: &Macro) -> bool {
+pub fn format_macro(mac: &Macro) -> bool {
     matches!(
         path_name(&mac.path).as_str(),
         "format" | "std::format" | "alloc::format"
@@ -85,6 +121,7 @@ fn message(expr: &Expr, formatted: bool) -> Option<Message> {
         Expr::Macro(expr) if format_macro(&expr.mac) => {
             message(&argument(expr.mac.tokens.clone(), 0)?, true)
         }
+        Expr::Reference(reference) => message(&reference.expr, formatted),
         Expr::MethodCall(call)
             if call.args.is_empty()
                 && matches!(
@@ -126,6 +163,7 @@ fn call_message(call: &ExprCall) -> Option<Message> {
     if path.qself.is_some() {
         return None;
     }
+
     let name = path_name(&path.path);
     let expr = match name.as_str() {
         "Err"
@@ -202,11 +240,12 @@ pub fn messages(file: &File) -> Vec<Message> {
             self.0.extend(context_message(call));
             if call.args.len() == 1 {
                 match call.method.to_string().as_str() {
-                    "ok_or" => self.0.extend(message(&call.args[0], false)),
+                    "ok_or" | "expect" => self.0.extend(message(&call.args[0], false)),
                     "ok_or_else" => self.0.extend(lazy_message(&call.args[0])),
                     _ => {}
                 }
             }
+
             visit::visit_expr_method_call(self, call);
         }
 

@@ -2,36 +2,15 @@
 //! Derive/type aliases, containers, and conditional attributes are not resolved.
 
 use syn::{
-    Attribute, Fields, File, Ident, ItemEnum, ItemStruct, Meta, Path, Token, Type,
-    ext::IdentExt as _,
-    punctuated::Punctuated,
+    Attribute, Fields, File, Ident, ItemEnum, ItemStruct, Meta, Type,
     visit::{self, Visit},
 };
 
 use super::{
     super::{context::Context, diagnostic::Diagnostic},
+    error_support::{conditional, derived, is_source_field},
     path_name,
 };
-
-fn conditional(attributes: &[Attribute]) -> bool {
-    attributes
-        .iter()
-        .any(|attr| attr.path().is_ident("cfg_attr"))
-}
-
-fn derived(attributes: &[Attribute]) -> bool {
-    !conditional(attributes)
-        && attributes.iter().any(|attr| {
-            attr.path().is_ident("derive")
-                && attr
-                    .parse_args_with(Punctuated::<Path, Token![,]>::parse_terminated)
-                    .is_ok_and(|paths| {
-                        paths.iter().any(|path| {
-                            matches!(path_name(path).as_str(), "Error" | "thiserror::Error")
-                        })
-                    })
-        })
-}
 
 fn standard_error(ty: &Type) -> bool {
     let ty = match ty {
@@ -86,16 +65,8 @@ pub fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
             {
                 return;
             }
-            let has_source = fields.iter().any(|field| {
-                field
-                    .ident
-                    .as_ref()
-                    .is_some_and(|name| name.unraw() == "source")
-                    || field
-                        .attrs
-                        .iter()
-                        .any(|attr| attr.path().is_ident("source") || attr.path().is_ident("from"))
-            });
+
+            let has_source = fields.iter().any(is_source_field);
             if !has_source && fields.iter().any(|field| standard_error(&field.ty)) {
                 self.findings.push(self.context.report(
                     "require-error-sources", name.span(), "error wrapper retains a standard error without declaring its source",
@@ -110,6 +81,7 @@ pub fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
             if derived(&item.attrs) {
                 self.wrapper(&item.ident, &item.attrs, &item.fields);
             }
+
             visit::visit_item_struct(self, item);
         }
 
@@ -119,6 +91,7 @@ pub fn check(file: &File, context: &Context<'_>) -> Vec<Diagnostic> {
                     self.wrapper(&variant.ident, &variant.attrs, &variant.fields);
                 }
             }
+
             visit::visit_item_enum(self, item);
         }
     }

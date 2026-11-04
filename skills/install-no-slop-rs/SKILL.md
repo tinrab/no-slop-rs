@@ -35,7 +35,8 @@ Follow the dispatcher's imports to find the active scanner, including renamed mo
 ## Preserve project intent
 
 Keep existing commands, aliases, default package selection, toolchain, formatting settings, and lint policy.
-Copy only runtime source from `assets/no_slop/` and merge the normal dependency requirements from `assets/dependencies.toml`.
+Copy only runtime source and its `UPSTREAM.md` provenance record from `assets/no_slop/` and merge the normal dependency requirements from `assets/dependencies.toml`.
+Keep `UPSTREAM.md` beside the installed scanner; it travels with the copied source.
 Do not copy LICENSE files, the whole skill, this repository's xtask crate, tests, or authoring tools into the project.
 
 Declare scanner dependencies only in the target xtask's `Cargo.toml`.
@@ -55,4 +56,4 @@ Run the scanner without fix flags during installation or update verification unl
 Inspect paths, findings, and failures to confirm that it scanned the application workspace.
 Application findings can be expected on a successful installation; distinguish them from coverage or execution failures.
 
-Report the command, active module path, adopted policy changes, checks, remaining findings, and unresolved issues.
+Report the command, active module path, source identity, adopted policy changes, checks, remaining findings, and unresolved issues.

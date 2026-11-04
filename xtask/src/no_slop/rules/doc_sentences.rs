@@ -68,6 +68,7 @@ fn doc_lines<'a>(context: &Context<'a>) -> Vec<Line<'a>> {
             if !indent.chars().all(|c| c == ' ' || c == '\t') {
                 return None;
             }
+
             let text = comment.text.trim_end_matches('\r');
             let body = &text[marker.len()..];
             Some(Line {
@@ -93,10 +94,12 @@ fn check_block(context: &Context<'_>, lines: &[Line<'_>], findings: &mut Vec<Dia
             fenced = !fenced;
             continue;
         }
+
         if fenced || trimmed.is_empty() || literal(line.body, unit.is_some()) {
             flush(context, lines, indent, unit.take(), findings);
             continue;
         }
+
         if let Some(content) = list_item_content(line.body) {
             flush(context, lines, indent, unit.take(), findings);
             unit = Some(Unit {
@@ -128,6 +131,7 @@ fn check_block(context: &Context<'_>, lines: &[Line<'_>], findings: &mut Vec<Dia
             flush(context, lines, indent, unit.take(), findings);
         }
     }
+
     flush(context, lines, indent, unit, findings);
 }
 
@@ -138,6 +142,7 @@ fn block_indent<'a>(context: &Context<'a>, lines: &[Line<'a>]) -> &'a str {
     if first.marker != "///" {
         return first.indent;
     }
+
     let rest = &context.source[last.end..];
     let next = rest
         .strip_prefix("\r\n")
@@ -169,6 +174,7 @@ fn check_layout(
         None if kept < lines.len() => (&lines[kept], "doc comment ends with an empty line"),
         None => return,
     };
+
     let first = &lines[0];
     let last = &lines[lines.len() - 1];
     let newline = fix::newline(context.source, first.start);
@@ -245,6 +251,7 @@ fn flush(
     {
         return;
     }
+
     let several = original
         .iter()
         .any(|line| !sentences_of(line.body.trim()).is_empty());
@@ -253,6 +260,7 @@ fn flush(
     } else {
         "sentence continues onto the next doc comment line"
     };
+
     let first = &original[0];
     let last = &original[original.len() - 1];
     let newline = fix::newline(context.source, first.start);
@@ -280,6 +288,7 @@ fn sentences(text: &str) -> Vec<&str> {
         parts.push(text[start..split].trim());
         start = split;
     }
+
     parts.push(text[start..].trim());
     parts
 }
@@ -290,6 +299,7 @@ fn sentences_of(text: &str) -> Vec<usize> {
     let mut starts = Vec::new();
     let mut code = false;
     let mut depth = 0_usize;
+
     for (index, &byte) in bytes.iter().enumerate() {
         match byte {
             b'`' => code = !code,
@@ -305,6 +315,7 @@ fn sentences_of(text: &str) -> Vec<usize> {
                     .unwrap_or_default();
                 let starts_sentence = next_word.chars().any(char::is_uppercase)
                     || text[next..].starts_with(['`', '[']);
+
                 let word_start = text[..index]
                     .char_indices()
                     .rev()
