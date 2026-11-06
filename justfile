@@ -22,6 +22,7 @@ lint fix="false":
     )
     allow=(
         clippy::too_many_arguments
+        clippy::missing_const_for_fn
     )
 
     if [ "{{ fix }}" = "true" ]; then

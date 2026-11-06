@@ -17,6 +17,7 @@ mod module_layout;
 mod policies;
 mod readable_spacing;
 mod scanner;
+mod skill_assets;
 mod statement_spacing;
 mod string_errors;
 mod stringified_errors;

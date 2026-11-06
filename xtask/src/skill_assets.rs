@@ -10,7 +10,6 @@ use std::{
 
 use anyhow::{Context as _, Result, ensure};
 use cargo_metadata::{DependencyKind, MetadataCommand};
-use serde_json;
 use walkdir::WalkDir;
 
 /// Synchronize the bundled runtime or check that it matches the canonical source.
@@ -33,7 +32,7 @@ fn sync(root: &Path, check: bool) -> Result<()> {
     let source = root.join("xtask/src/no_slop");
     let destination = root.join("skills/install-no-slop-rs/assets");
     let mut expected = BTreeMap::new();
-    for (path, bytes) in read_tree(&source)? {
+    for (path, bytes) in read_source(&source)? {
         expected.insert(PathBuf::from("no_slop").join(path), bytes);
     }
 
@@ -58,6 +57,19 @@ fn sync(root: &Path, check: bool) -> Result<()> {
         println!("Synced {} skill assets.", expected.len());
     }
     Ok(())
+}
+
+/// Read the scanner source, rejecting files that should not ship in the skill bundle.
+pub(crate) fn read_source(root: &Path) -> Result<BTreeMap<PathBuf, Vec<u8>>> {
+    let files = read_tree(root)?;
+    for path in files.keys() {
+        ensure!(
+            path == Path::new("UPSTREAM.md") || path.extension().is_some_and(|ext| ext == "rs"),
+            "unexpected file in scanner source: {}",
+            path.display()
+        );
+    }
+    Ok(files)
 }
 
 fn read_tree(root: &Path) -> Result<BTreeMap<PathBuf, Vec<u8>>> {
@@ -100,10 +112,10 @@ fn dependencies(root: &Path) -> Result<String> {
             continue;
         }
 
-        let features = serde_json::to_string(&dependency.features)?;
+        // Cargo feature names need no escaping, so their Debug form is a valid TOML array.
         let declaration = format!(
-            "{{ version = \"{}\", features = {features}, default-features = {} }}",
-            dependency.req, dependency.uses_default_features
+            "{{ version = \"{}\", features = {:?}, default-features = {} }}",
+            dependency.req, dependency.features, dependency.uses_default_features
         );
         dependencies.insert(dependency.name.clone(), declaration);
     }
